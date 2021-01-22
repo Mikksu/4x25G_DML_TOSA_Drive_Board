@@ -1,0 +1,36 @@
+{
+    "configurations": [
+        {
+            "name": "Win32",
+            "includePath": [
+                "${workspaceFolder}/**"
+            ],
+            "defines": [
+                "_DEBUG",
+                "UNICODE",
+                "_UNICODE"
+            ],
+            "cStandard": "c17",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "msvc-x64"
+        },
+        {
+            "name": "Stm32",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "C:\\Users\\Mikk\\STM32Cube\\Repository\\STM32Cube_FW_F4_V1.25.2\\Middlewares\\Third_Party\\FreeRTOS\\Source\\include\\",
+                "C:\\Keil_v5\\ARM\\ARMCLANG\\include\\",
+                "C:\\Users\\Mikk\\STM32Cube\\Repository\\STM32Cube_FW_F4_V1.25.2\\Middlewares\\Third_Party\\FreeRTOS\\Source\\portable\\GCC\\ARM_CM4_MPU\\"
+            ],
+            "defines": [
+                "_DEBUG",
+                "UNICODE",
+                "_UNICODE"
+            ],
+            "cStandard": "c11",
+            "cppStandard": "c++11",
+            "intelliSenseMode": "gcc-arm"
+        }
+    ],
+    "version": 4
+}
