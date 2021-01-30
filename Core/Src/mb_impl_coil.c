@@ -12,6 +12,65 @@ UCHAR ucSCoilBuf[COIL_NCOILS / 8 + 1];
 UCHAR ucSCoilBuf[COIL_NCOILS / 8];
 #endif
 
+#ifdef MB_OS_USED
+
+#include "cmsis_os.h"
+#include "mb_os_def.h"
+
+/*
+ * The message queue to pass the message indicates where and how many registers are modified.
+ */
+osMessageQDef(msgQueueCoil, 5, uint32_t);
+osMessageQId msgQueueCoilHandle;
+
+/*
+ * The pool of the message.
+ */
+osPoolDef(poolCoilMsg, 5, MB_MSG_TypeDef);
+osPoolId poolCoilMsgHandle;
+
+/*
+ * The handle of the processing task.
+ */
+osThreadId regCoilTaskHandle;
+
+static void StartTaskRegCoil(void const * argument)
+{
+  // create the message queue.
+  msgQueueCoilHandle = osMessageCreate(osMessageQ(msgQueueCoil), NULL);
+
+  // create the message pool.
+  poolCoilMsgHandle = osPoolCreate(osPool(poolCoilMsg));
+
+  for(;;)
+  {
+    // wait the message.
+    osEvent evt = osMessageGet(msgQueueCoilHandle, osWaitForever);
+    if(evt.status == osEventMessage)
+    {
+        // get the pointer of the modbus message struct.
+        MB_MSG_TypeDef* msg = evt.value.p;
+        if(msg != NULL)
+        {
+            // some of the coil regs are changed.
+        }
+
+        osPoolFree(poolCoilMsgHandle, (void*)msg);
+    }
+  }
+}
+
+/*
+ * Create the task to process the coil registers.
+ */
+void CreateMbCoilProcTask(void)
+{
+  osThreadDef(regCoilTask, StartTaskRegCoil, osPriorityNormal, 0, 128);
+  regCoilTaskHandle = osThreadCreate(osThread(regCoilTask), NULL);
+}
+
+#endif
+
 /**
  * Modbus slave coils callback function.
  *
@@ -67,6 +126,18 @@ eMBRegCoilsCB(UCHAR *pucRegBuffer, USHORT usAddress, USHORT usNCoils,
             {
                 xMBUtilSetBits(&usCoilBuf[iRegIndex++], iRegBitIndex, usNCoils, *pucRegBuffer++);
             }
+
+#ifdef MB_OS_USED
+            // send a message to tell the task there are some registers are set.
+            MB_MSG_TypeDef* msg = osPoolCAlloc(poolCoilMsgHandle);
+            if(msg != NULL)
+            {
+               msg->Address = usAddress;
+               msg->NRegs = usNCoils;
+               osMessagePut(msgQueueCoilHandle, (uint32_t)msg, 100);
+            }
+#endif
+
             break;
         }
     }

@@ -25,7 +25,8 @@
             "defines": [
                 "_DEBUG",
                 "UNICODE",
-                "_UNICODE"
+                "_UNICODE",
+                "MB_OS_USED"
             ],
             "cStandard": "c11",
             "cppStandard": "c++11",

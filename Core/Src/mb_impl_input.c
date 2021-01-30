@@ -2,6 +2,44 @@
 #include "mb.h"
 #include "mbutils.h"
 
+#ifdef MB_OS_USED
+#include "cmsis_os.h"
+#include "mb_os_def.h"
+
+osMessageQDef(msgQueueInput, 5, uint32_t);
+osMessageQId msgQueueInputHandle;
+
+osPoolDef(poolInputMsg, 5, MB_MSG_TypeDef);
+osPoolId poolInputMsgHandle;
+
+void StartTaskRegInput(void const * argument)
+{
+  // create the message queue.
+  msgQueueInputHandle = osMessageCreate(osMessageQ(msgQueueInput), NULL);
+
+  // create the message pool.
+  poolInputMsgHandle = osPoolCreate(osPool(poolInputMsg));
+
+  for(;;)
+  {
+    osEvent evt = osMessageGet(msgQueueInputHandle, osWaitForever);
+    if(evt.status == osEventMessage)
+    {
+        // get the pointer of the modbus message struct.
+        MB_MSG_TypeDef* msg = evt.value.p;
+        if(msg != NULL)
+        {
+            // some of the coil regs are changed.
+        }
+    }
+  }
+}
+
+osThreadDef(regInputTask, StartTaskRegInput, osPriorityNormal, 0, 128);
+osThreadId regInputTaskHandle;
+
+#endif
+
 
 #define REG_INPUT_START 0
 #define REG_INPUT_NREGS 100

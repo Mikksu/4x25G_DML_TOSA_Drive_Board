@@ -7,6 +7,45 @@
 static USHORT usRegHoldingStart = REG_HOLDING_START;
 USHORT usRegHoldingBuf[REG_HOLDING_NREGS] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
 
+#ifdef MB_OS_USED
+#include "cmsis_os.h"
+#include "mb_os_def.h"
+
+osMessageQDef(msgQueueHolding, 5, uint32_t);
+osMessageQId msgQueueHoldingHandle;
+
+osPoolDef(poolHoldingMsg, 5, MB_MSG_TypeDef);
+osPoolId poolHoldingMsgHandle;
+
+void StartTaskRegHolding(void const * argument)
+{
+  // create the message queue.
+  msgQueueHoldingHandle = osMessageCreate(osMessageQ(msgQueueHolding), NULL);
+
+  // create the message pool.
+  poolHoldingMsgHandle = osPoolCreate(osPool(poolHoldingMsg));
+
+  for(;;)
+  {
+    osEvent evt = osMessageGet(msgQueueHoldingHandle, osWaitForever);
+    if(evt.status == osEventMessage)
+    {
+        // get the pointer of the modbus message struct.
+        MB_MSG_TypeDef* msg = evt.value.p;
+        if(msg != NULL)
+        {
+            // some of the coil regs are changed.
+        }
+    }
+  }
+}
+
+osThreadDef(regHoldingTask, StartTaskRegHolding, osPriorityNormal, 0, 128);
+osThreadId regHoldingTaskHandle;
+
+#endif
+
+
 /**
  * Modbus slave holding register callback function.
  *

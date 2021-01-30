@@ -28,18 +28,18 @@
 /* USER CODE BEGIN Includes */
 #include "mb.h"
 #include "tim.h"
+#include "mb_os_def.h"
+#include "ina226.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
 
-// the struct of the element of the modbus message queue.
-typedef struct MB_MSG_TYP
-{
-	uint16_t Address;
-	uint16_t NRegs;
-	
-} MB_MSG_Holding, MB_MSG_Input, MB_MSG_Coil, MB_MSG_Disc;
+// the following handles are defined in the mb_impl_xxx.c files.
+extern MB_MSG_TypeDef MB_MSG_Coil;
+extern MB_MSG_TypeDef MB_MSG_Disc;
+extern MB_MSG_TypeDef MB_MSG_Holding;
+extern MB_MSG_TypeDef MB_MSG_Input;
 
 /* USER CODE END PTD */
 
@@ -55,11 +55,10 @@ typedef struct MB_MSG_TYP
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN Variables */
+
+INA226_TypeDef ina2261, ina2262, ina2263;
+
 osThreadId modbusPollingTaskHandle;
-osThreadId regHoldingTaskHandle;
-
-osMessageQId msgQueueCoilHandle, msgQueueDiscHandle, msgQueueHoldingHandle, msgQueueInputHandle;
-
 
 /* USER CODE END Variables */
 osThreadId defaultTaskHandle;
@@ -114,16 +113,7 @@ void MX_FREERTOS_Init(void) {
 
   /* USER CODE BEGIN RTOS_QUEUES */
   /* add queues, ... */
-	
-	osMessageQDef(msgQueueCoil, 16, MB_MSG_Coil);
-	osMessageQDef(msgQueueDisc, 16, MB_MSG_Disc);
-	osMessageQDef(msgQueueHolding, 16, MB_MSG_Holding);
-	osMessageQDef(msgQueueInput, 16, MB_MSG_Input);
-	
-	msgQueueCoilHandle = osMessageCreate(osMessageQ(msgQueueCoil), NULL);
-	msgQueueDiscHandle = osMessageCreate(osMessageQ(msgQueueDisc), NULL);
-	msgQueueHoldingHandle = osMessageCreate(osMessageQ(msgQueueHolding), NULL);
-	msgQueueInputHandle = osMessageCreate(osMessageQ(msgQueueInput), NULL);
+
 	
   /* USER CODE END RTOS_QUEUES */
 
@@ -134,11 +124,8 @@ void MX_FREERTOS_Init(void) {
 
   /* USER CODE BEGIN RTOS_THREADS */
   osThreadDef(modbusPollingTask, StartModbusPollingTask, osPriorityNormal, 0, 128);
-	modbusPollingTaskHandle = osThreadCreate(osThread(modbusPollingTask), NULL);
-	
-	osThreadDef(regHoldingTask, StartTaskRegHolding, osPriorityNormal, 0, 128);
-  regHoldingTaskHandle = osThreadCreate(osThread(regHoldingTask), NULL);
-	
+  modbusPollingTaskHandle = osThreadCreate(osThread(modbusPollingTask), NULL);
+
   /* USER CODE END RTOS_THREADS */
 
 }
@@ -154,15 +141,21 @@ void StartDefaultTask(void const * argument)
 {
   /* USER CODE BEGIN StartDefaultTask */
 	
+  // create the instance of the INA226.
+  INA226_Init(&ina2261, &hi2c1, INA226_VCC1);
+  INA226_SoftwareReset(&ina2261);
+
+  INA226_Init(&ina2262, &hi2c1, INA226_VCC2);
+  INA226_Init(&ina2263, &hi2c1, INA226_VCC3);
 	
   /* Infinite loop */
   for(;;)
   {
-		HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
+    HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
     osDelay(500);
 		
-		HAL_TIM_PWM_Stop(&htim1, TIM_CHANNEL_1);
-		osDelay(500);
+    HAL_TIM_PWM_Stop(&htim1, TIM_CHANNEL_1);
+    osDelay(500);
   }
   /* USER CODE END StartDefaultTask */
 }
@@ -171,34 +164,14 @@ void StartDefaultTask(void const * argument)
 /* USER CODE BEGIN Application */
 void StartModbusPollingTask(void const * argument)
 {
-	eMBInit(MB_RTU, 0X01, 1, 921600, MB_PAR_NONE);
+  eMBInit(MB_RTU, 0X01, 1, 921600, MB_PAR_NONE);
   eMBEnable();
-	for(;;)
-	{
-		eMBPoll();
-	}
+  for(;;)
+  {
+    eMBPoll();
+  }
 }
 
-void StartTaskRegHolding(void const * argument)
-{
-	extern uint16_t usRegHoldingBuf[100];
-	
-	uint16_t lastBrightness = 0;
-	
-  for(;;)
-	{
-		if(lastBrightness != usRegHoldingBuf[0]) // brightness has changed.
-		{
-			lastBrightness = usRegHoldingBuf[0];
-			if(lastBrightness > 1000)
-				lastBrightness = 1000;
-			
-			htim1.Instance->CCR1 = lastBrightness;
-		}
-		
-		osDelay(10);
-	}
-}
 /* USER CODE END Application */
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
