@@ -1,11 +1,13 @@
 #include "port.h"
 #include "mb.h"
 #include "mbutils.h"
+#include "bitband.h"
+#include "top.h"
 
 #define COIL_START 0
 #define COIL_NCOILS 100
 static USHORT usCoilStart = COIL_START;
-static UCHAR usCoilBuf[COIL_NCOILS] = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x10};
+static UCHAR usCoilBuf[COIL_NCOILS] = {0x0};
 #if S_COIL_NCOILS % 8
 UCHAR ucSCoilBuf[COIL_NCOILS / 8 + 1];
 #else
@@ -52,7 +54,47 @@ static void StartTaskRegCoil(void const * argument)
         MB_MSG_TypeDef* msg = evt.value.p;
         if(msg != NULL)
         {
-            // some of the coil regs are changed.
+          int nbits = msg->NRegs;
+          int regIndex = msg->RegIndex;
+          int regBitIndex = msg->RegBitIndex;
+          uint8_t bitValue;
+
+          while(nbits > 0)
+          {
+            switch(regIndex)
+            {
+              case 0: // ucCoilBuf[0]
+
+                bitValue = BIT_ADDR((uint32_t)usCoilBuf, regBitIndex);
+
+                if(regBitIndex == 0)
+                {
+                  if(bitValue == 0) Top_TurnOffVcc1();
+                  else Top_TurnOnVcc1();
+                }
+                else if(regBitIndex == 1)
+                {
+                  if(bitValue == 0) Top_TurnOffVcc2();
+                  else Top_TurnOnVcc2();
+                }
+
+                else if(regBitIndex == 2)
+                {
+                  if(bitValue == 0) Top_TurnOffVcc3();
+                  else Top_TurnOnVcc3();
+                }
+                break; // end of ucCoilBuf[0]
+            }
+
+            // move to the next bit.
+            nbits--;
+            regBitIndex++;
+            if(regBitIndex >= 8)
+            {
+              regBitIndex = 0;
+              regIndex++;
+            }
+          }
         }
 
         osPoolFree(poolCoilMsgHandle, (void*)msg);
@@ -89,6 +131,10 @@ eMBRegCoilsCB(UCHAR *pucRegBuffer, USHORT usAddress, USHORT usNCoils,
     USHORT iRegIndex, iRegBitIndex, iNReg;
     iNReg = usNCoils / 8 + 1;
 
+#ifdef MB_OS_USED
+    MB_MSG_TypeDef* msg;
+#endif
+
     usAddress--;
 
     if ((usAddress >= usCoilStart) && (usAddress + usNCoils <= usCoilStart + COIL_NCOILS))
@@ -114,6 +160,19 @@ eMBRegCoilsCB(UCHAR *pucRegBuffer, USHORT usAddress, USHORT usNCoils,
 
             /* write current coil values with new values from the protocol stack. */
         case MB_REG_WRITE:
+
+#ifdef MB_OS_USED
+            // send a message to tell the task there are some registers are set.
+
+            msg = osPoolCAlloc(poolCoilMsgHandle);
+            if(msg != NULL)
+            {
+               msg->RegIndex = iRegIndex;
+               msg->NRegs = usNCoils;
+               msg->RegBitIndex = iRegBitIndex;
+            }
+#endif
+
             while (iNReg > 1)
             {
                 xMBUtilSetBits(&usCoilBuf[iRegIndex++], iRegBitIndex, 8, *pucRegBuffer++);
@@ -128,14 +187,9 @@ eMBRegCoilsCB(UCHAR *pucRegBuffer, USHORT usAddress, USHORT usNCoils,
             }
 
 #ifdef MB_OS_USED
-            // send a message to tell the task there are some registers are set.
-            MB_MSG_TypeDef* msg = osPoolCAlloc(poolCoilMsgHandle);
             if(msg != NULL)
-            {
-               msg->Address = usAddress;
-               msg->NRegs = usNCoils;
-               osMessagePut(msgQueueCoilHandle, (uint32_t)msg, 100);
-            }
+              osMessagePut(msgQueueCoilHandle, (uint32_t)msg, 100);
+
 #endif
 
             break;

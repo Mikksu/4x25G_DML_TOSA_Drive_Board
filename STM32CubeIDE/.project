@@ -283,6 +283,11 @@
 			<locationURI>$%7BPARENT-1-PROJECT_LOC%7D/Core/Src/tim.c</locationURI>
 		</link>
 		<link>
+			<name>Application/User/Core/top.c</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/Core/Src/top.c</locationURI>
+		</link>
+		<link>
 			<name>Application/User/Core/usart.c</name>
 			<type>1</type>
 			<locationURI>$%7BPARENT-1-PROJECT_LOC%7D/Core/Src/usart.c</locationURI>

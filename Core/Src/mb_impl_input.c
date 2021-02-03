@@ -12,6 +12,8 @@ osMessageQId msgQueueInputHandle;
 osPoolDef(poolInputMsg, 5, MB_MSG_TypeDef);
 osPoolId poolInputMsgHandle;
 
+osThreadId regInputTaskHandle;
+
 void StartTaskRegInput(void const * argument)
 {
   // create the message queue.
@@ -35,8 +37,14 @@ void StartTaskRegInput(void const * argument)
   }
 }
 
-osThreadDef(regInputTask, StartTaskRegInput, osPriorityNormal, 0, 128);
-osThreadId regInputTaskHandle;
+/*
+ * Create the task to process the coil registers.
+ */
+void CreateMbInputProcTask(void)
+{
+  osThreadDef(regInputTask, StartTaskRegInput, osPriorityNormal, 0, 128);
+  regInputTaskHandle = osThreadCreate(osThread(regInputTask), NULL);
+}
 
 #endif
 
@@ -44,7 +52,7 @@ osThreadId regInputTaskHandle;
 #define REG_INPUT_START 0
 #define REG_INPUT_NREGS 100
 static USHORT usRegInputStart = REG_INPUT_START;
-static USHORT usRegInputBuf[REG_INPUT_NREGS] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+USHORT usRegInputBuf[REG_INPUT_NREGS] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
 
 eMBErrorCode eMBRegInputCB(UCHAR *pucRegBuffer, USHORT usAddress, USHORT usNRegs)
 {

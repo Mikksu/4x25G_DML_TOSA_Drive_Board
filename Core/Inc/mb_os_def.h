@@ -5,8 +5,10 @@
 
 typedef struct
 {
-	uint16_t Address;
+	uint16_t RegIndex;
 	uint16_t NRegs;
+	uint16_t RegBitIndex;
+
 } MB_MSG_TypeDef;
 
 #endif

@@ -29,7 +29,7 @@
 #include "mb.h"
 #include "tim.h"
 #include "mb_os_def.h"
-#include "ina226.h"
+#include "top.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -56,7 +56,9 @@ extern MB_MSG_TypeDef MB_MSG_Input;
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN Variables */
 
-INA226_TypeDef ina2261, ina2262, ina2263;
+
+
+extern osThreadId regCoilTaskHandle;
 
 osThreadId modbusPollingTaskHandle;
 
@@ -65,8 +67,12 @@ osThreadId defaultTaskHandle;
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
+
 void StartModbusPollingTask(void const * argument);
 void StartTaskRegHolding(void const * argument);
+
+
+void CreateMbCoilProcTask(void);
 /* USER CODE END FunctionPrototypes */
 
 void StartDefaultTask(void const * argument);
@@ -126,6 +132,8 @@ void MX_FREERTOS_Init(void) {
   osThreadDef(modbusPollingTask, StartModbusPollingTask, osPriorityNormal, 0, 128);
   modbusPollingTaskHandle = osThreadCreate(osThread(modbusPollingTask), NULL);
 
+  CreateMbCoilProcTask();
+
   /* USER CODE END RTOS_THREADS */
 
 }
@@ -140,22 +148,21 @@ void MX_FREERTOS_Init(void) {
 void StartDefaultTask(void const * argument)
 {
   /* USER CODE BEGIN StartDefaultTask */
-	
-  // create the instance of the INA226.
-  INA226_Init(&ina2261, &hi2c1, INA226_VCC1);
-  INA226_SoftwareReset(&ina2261);
 
-  INA226_Init(&ina2262, &hi2c1, INA226_VCC2);
-  INA226_Init(&ina2263, &hi2c1, INA226_VCC3);
+  // initialize the board.
+  Top_Init();
 	
   /* Infinite loop */
   for(;;)
   {
-    HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
-    osDelay(500);
+    Top_TurnOnLed();
+    osDelay(10);
 		
-    HAL_TIM_PWM_Stop(&htim1, TIM_CHANNEL_1);
-    osDelay(500);
+    Top_TurnOffLed();
+    osDelay(50);
+
+    Top_UpdateStatus();
+
   }
   /* USER CODE END StartDefaultTask */
 }
@@ -164,7 +171,7 @@ void StartDefaultTask(void const * argument)
 /* USER CODE BEGIN Application */
 void StartModbusPollingTask(void const * argument)
 {
-  eMBInit(MB_RTU, 0X01, 1, 921600, MB_PAR_NONE);
+  eMBInit(MB_RTU, 0X01, 1, 115200, MB_PAR_NONE);
   eMBEnable();
   for(;;)
   {
