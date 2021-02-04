@@ -26,10 +26,13 @@ HAL_StatusTypeDef INA226_Init(INA226_HandleTypeDef* ina226, I2C_HandleTypeDef* h
   ina226->I2CAddress = address;
 
   // read the current value of the registers.
-  INA226_ReloadRegistors(ina226);
+  INA226_SyncRegistors(ina226);
 
   // register the callback functions.
   ina226->OnAvgModeChangedCb = &INA226_OnAveragingModeChanged;
+  ina226->OnVBUSCTChangedCb = &OnVBUSCTChangedCb;
+  ina226->OnVSHCTChangedCb = &OnVSHCTChangedCb;
+  ina226->OnOperationModehangedCb = &OnOperationModehangedCb;
 
   return HAL_OK;
 }
@@ -44,13 +47,13 @@ HAL_StatusTypeDef INA226_SoftwareReset(INA226_HandleTypeDef* ina226)
   if(i2cStatus == HAL_OK)
   {
     // read the current value of the registers.
-    INA226_ReloadRegistors(ina226);
+    INA226_SyncRegistors(ina226);
   }
 
   return i2cStatus;
 }
 
-void INA226_ReloadRegistors(INA226_HandleTypeDef* ina226)
+void INA226_SyncRegistors(INA226_HandleTypeDef* ina226)
 {
   ina226->RegConfiguration = INA226_ReadConfigurationReg(ina226);
   //ina226->RegShuntVoltage = INA226_ReadShuntVoltageReg(ina226);
@@ -157,11 +160,6 @@ HAL_StatusTypeDef INA226_SetAveragingMode(INA226_HandleTypeDef* ina226, INA226_A
   HAL_StatusTypeDef i2cStatus = HAL_OK;
   uint16_t regval = 0xffff;
 
-  /*
-  i2cStatus = i2c_read(ina226, INA226_REG_CONFIG, &regval);
-  if(i2cStatus != HAL_OK) return i2cStatus;
-  */
-
   regval = ina226->RegConfiguration;
 
   // clear the corresponding bits.
@@ -175,6 +173,75 @@ HAL_StatusTypeDef INA226_SetAveragingMode(INA226_HandleTypeDef* ina226, INA226_A
     ina226->RegConfiguration = regval;
     if(ina226->OnAvgModeChangedCb != NULL)
       ina226->OnAvgModeChangedCb(ina226, mode);
+  }
+
+  return i2cStatus;
+}
+
+HAL_StatusTypeDef INA226_SetVBUSCT(INA226_HandleTypeDef* ina226, INA226_VBUSCTTypeDef mode)
+{
+  HAL_StatusTypeDef i2cStatus = HAL_OK;
+  uint16_t regval = 0xffff;
+
+  regval = ina226->RegConfiguration;
+
+  // clear the corresponding bits.
+  regval &= (~INA226_CONFIG_VBUSCT);
+  regval |= mode;
+
+  i2cStatus = i2c_write(ina226, INA226_REG_CONFIG, regval);
+
+  if(i2cStatus == HAL_OK)
+  {
+    ina226->RegConfiguration = regval;
+    if(ina226->OnVBUSCTChangedCb != NULL)
+      ina226->OnVBUSCTChangedCb(ina226, mode);
+  }
+
+  return i2cStatus;
+}
+
+HAL_StatusTypeDef INA226_SetVSHCT(INA226_HandleTypeDef* ina226, INA226_VSHCTTypeDef mode)
+{
+  HAL_StatusTypeDef i2cStatus = HAL_OK;
+  uint16_t regval = 0xffff;
+
+  regval = ina226->RegConfiguration;
+
+  // clear the corresponding bits.
+  regval &= (~INA226_CONFIG_VSHCT);
+  regval |= mode;
+
+  i2cStatus = i2c_write(ina226, INA226_REG_CONFIG, regval);
+
+  if(i2cStatus == HAL_OK)
+  {
+    ina226->RegConfiguration = regval;
+    if(ina226->OnVSHCTChangedCb != NULL)
+      ina226->OnVSHCTChangedCb(ina226, mode);
+  }
+
+  return i2cStatus;
+}
+
+HAL_StatusTypeDef INA226_SetOperationMode(INA226_HandleTypeDef* ina226, INA226_OpModeTypeDef mode)
+{
+  HAL_StatusTypeDef i2cStatus = HAL_OK;
+  uint16_t regval = 0xffff;
+
+  regval = ina226->RegConfiguration;
+
+  // clear the corresponding bits.
+  regval &= (~INA226_CONFIG_MODE);
+  regval |= mode;
+
+  i2cStatus = i2c_write(ina226, INA226_REG_CONFIG, regval);
+
+  if(i2cStatus == HAL_OK)
+  {
+    ina226->RegConfiguration = regval;
+    if(ina226->OnOperationModehangedCb != NULL)
+      ina226->OnOperationModehangedCb(ina226, mode);
   }
 
   return i2cStatus;
@@ -234,6 +301,21 @@ static HAL_StatusTypeDef i2c_read(INA226_HandleTypeDef* ina226, uint8_t reg, uin
 }
 
 __weak void INA226_OnAveragingModeChanged(struct __INA226_HandleTypeDef* this, int e)
+{
+  UNUSED(this);
+}
+
+__weak void OnVBUSCTChangedCb(struct __INA226_HandleTypeDef* this, int e)
+{
+  UNUSED(this);
+}
+
+__weak void OnVSHCTChangedCb(struct __INA226_HandleTypeDef* this, int e)
+{
+  UNUSED(this);
+}
+
+__weak void OnOperationModehangedCb(struct __INA226_HandleTypeDef* this, int e)
 {
   UNUSED(this);
 }

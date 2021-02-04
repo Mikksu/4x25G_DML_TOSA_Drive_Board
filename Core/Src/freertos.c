@@ -57,9 +57,6 @@ extern MB_MSG_TypeDef MB_MSG_Input;
 /* USER CODE BEGIN Variables */
 
 
-
-extern osThreadId regCoilTaskHandle;
-
 osThreadId modbusPollingTaskHandle;
 
 /* USER CODE END Variables */
@@ -71,8 +68,6 @@ osThreadId defaultTaskHandle;
 void StartModbusPollingTask(void const * argument);
 void StartTaskRegHolding(void const * argument);
 
-
-void CreateMbCoilProcTask(void);
 /* USER CODE END FunctionPrototypes */
 
 void StartDefaultTask(void const * argument);
@@ -133,6 +128,7 @@ void MX_FREERTOS_Init(void) {
   modbusPollingTaskHandle = osThreadCreate(osThread(modbusPollingTask), NULL);
 
   CreateMbCoilProcTask();
+  CreateMbHoldingProcTask();
 
   /* USER CODE END RTOS_THREADS */
 

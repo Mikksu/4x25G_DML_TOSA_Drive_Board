@@ -99,6 +99,9 @@ void            xMBUtilSetBits( UCHAR * ucByteBuf, USHORT usBitOffset,
 UCHAR           xMBUtilGetBits( UCHAR * ucByteBuf, USHORT usBitOffset,
                                 UCHAR ucNBits );
 
+
+ULONG           xMBUtilSwapWord(USHORT* ucWordBuf);
+
 /*! @} */
 
 #ifdef __cplusplus

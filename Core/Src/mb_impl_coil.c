@@ -83,6 +83,16 @@ static void StartTaskRegCoil(void const * argument)
                   if(bitValue == 0) Top_TurnOffVcc3();
                   else Top_TurnOnVcc3();
                 }
+                else if(regBitIndex == 3)
+                {
+                  if(bitValue == 0) Top_TurnOffTec();
+                  else Top_TurnOnTec();
+                }
+                else if(regBitIndex == 4)
+                {
+                  if(bitValue == 0) Top_SetTecMode(TEC_MODE_HEATER);
+                  else Top_SetTecMode(TEC_MODE_TEC);
+                }
                 break; // end of ucCoilBuf[0]
             }
 

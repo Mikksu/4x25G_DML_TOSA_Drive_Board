@@ -42,6 +42,45 @@ typedef enum
 
 } INA226_AvgModeTypeDef;
 
+typedef enum
+{
+  INA226_VBUSCT_140     = (0 << INA226_CONFIG_VBUSCT_POS),
+  INA226_VBUSCT_204     = (1 << INA226_CONFIG_VBUSCT_POS),
+  INA226_VBUSCT_332     = (2 << INA226_CONFIG_VBUSCT_POS),
+  INA226_VBUSCT_588     = (3 << INA226_CONFIG_VBUSCT_POS),
+  INA226_VBUSCT_1100    = (4 << INA226_CONFIG_VBUSCT_POS),
+  INA226_VBUSCT_2116    = (5 << INA226_CONFIG_VBUSCT_POS),
+  INA226_VBUSCT_4156    = (6 << INA226_CONFIG_VBUSCT_POS),
+  INA226_VBUSCT_8244    = (7 << INA226_CONFIG_VBUSCT_POS)
+
+} INA226_VBUSCTTypeDef;
+
+typedef enum
+{
+  INA226_VSHCT_140     = (0 << INA226_CONFIG_VSHCT_POS),
+  INA226_VSHCT_204     = (1 << INA226_CONFIG_VSHCT_POS),
+  INA226_VSHCT_332     = (2 << INA226_CONFIG_VSHCT_POS),
+  INA226_VSHCT_588     = (3 << INA226_CONFIG_VSHCT_POS),
+  INA226_VSHCT_1100    = (4 << INA226_CONFIG_VSHCT_POS),
+  INA226_VSHCT_2116    = (5 << INA226_CONFIG_VSHCT_POS),
+  INA226_VSHCT_4156    = (6 << INA226_CONFIG_VSHCT_POS),
+  INA226_VSHCT_8244    = (7 << INA226_CONFIG_VSHCT_POS)
+
+} INA226_VSHCTTypeDef;
+
+typedef enum
+{
+  INA226_POWER_DOWN_0   = (0 << INA226_CONFIG_MODE_POS),
+  INA226_VSH_TRIG       = (1 << INA226_CONFIG_MODE_POS),
+  INA226_VBUS_TRIG      = (2 << INA226_CONFIG_MODE_POS),
+  INA226_VSH_VBUS_TRIG  = (3 << INA226_CONFIG_MODE_POS),
+  INA226_POWER_DOWN_1   = (4 << INA226_CONFIG_MODE_POS),
+  INA226_VSH_CONT       = (5 << INA226_CONFIG_MODE_POS),
+  INA226_VBUS_CONT      = (6 << INA226_CONFIG_MODE_POS),
+  INA226_VSH_VBUS_CONT  = (7 << INA226_CONFIG_MODE_POS)
+
+} INA226_OpModeTypeDef;
+
 
 typedef struct
 {
@@ -91,11 +130,17 @@ typedef struct __INA226_HandleTypeDef
   INA226_CalParamTypeDef        CalibrationParam;                 /*!< The parameters to calculate the Calibration Register  */
 
   void                          (*OnAvgModeChangedCb)(struct __INA226_HandleTypeDef*, int);
+  void                          (*OnVBUSCTChangedCb)(struct __INA226_HandleTypeDef*, int);
+  void                          (*OnVSHCTChangedCb)(struct __INA226_HandleTypeDef*, int);
+  void                          (*OnOperationModehangedCb)(struct __INA226_HandleTypeDef*, int);
 
 } INA226_HandleTypeDef;
 
 
 void INA226_OnAveragingModeChanged(struct __INA226_HandleTypeDef* this, int e);
+void OnVBUSCTChangedCb(struct __INA226_HandleTypeDef* this, int e);
+void OnVSHCTChangedCb(struct __INA226_HandleTypeDef* this, int e);
+void OnOperationModehangedCb(struct __INA226_HandleTypeDef* this, int e);
 
 
 
@@ -123,7 +168,7 @@ HAL_StatusTypeDef INA226_SoftwareReset(INA226_HandleTypeDef* ina226);
  *
  * @param ina226      The point to the instance of the INA226.
  */
-void INA226_ReloadRegistors(INA226_HandleTypeDef* ina226);
+void INA226_SyncRegistors(INA226_HandleTypeDef* ina226);
 
 /*
  * @brief         Read the value of the Configration registor.
@@ -196,6 +241,14 @@ uint16_t INA226_ReadAlertLimitReg(INA226_HandleTypeDef* ina226);
  * @param averagingMode   The Averaging Mode.
  */
 HAL_StatusTypeDef INA226_SetAveragingMode(INA226_HandleTypeDef* ina226, INA226_AvgModeTypeDef mode);
+
+
+HAL_StatusTypeDef INA226_SetVBUSCT(INA226_HandleTypeDef* ina226, INA226_VBUSCTTypeDef mode);
+
+HAL_StatusTypeDef INA226_SetVSHCT(INA226_HandleTypeDef* ina226, INA226_VSHCTTypeDef mode);
+
+
+HAL_StatusTypeDef INA226_SetOperationMode(INA226_HandleTypeDef* ina226, INA226_OpModeTypeDef mode);
 
 
 /*

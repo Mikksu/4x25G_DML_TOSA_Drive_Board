@@ -112,6 +112,19 @@ xMBUtilGetBits( UCHAR * ucByteBuf, USHORT usBitOffset, UCHAR ucNBits )
     return ( UCHAR ) usWordBuf;
 }
 
+ULONG
+xMBUtilSwapWord(USHORT* ucWordBuf)
+{
+  UCHAR *p = (UCHAR*)ucWordBuf;
+  USHORT w0 = (*p << 8) | (*(p + 1));
+
+  p = (UCHAR*)(ucWordBuf + 1);
+  USHORT w1 = (*p << 8) | (*(p + 1));
+
+  ULONG ret = w1 << 16 | w0;
+  return ret;
+}
+
 eMBException
 prveMBError2Exception( eMBErrorCode eErrorCode )
 {

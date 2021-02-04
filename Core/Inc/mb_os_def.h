@@ -11,4 +11,7 @@ typedef struct
 
 } MB_MSG_TypeDef;
 
+void CreateMbCoilProcTask(void);
+void CreateMbHoldingProcTask(void);
+
 #endif

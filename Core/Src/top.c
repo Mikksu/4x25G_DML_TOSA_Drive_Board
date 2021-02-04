@@ -3,19 +3,7 @@
 #include "tim.h"
 #include "ina226.h"
 
-/*
- * @brief         How many INA226s are there on the board.
- */
-#define MAX_INA226_CH  (5)
 
-/*
- * @brief         The I2C address of the INA226s.
- */
-#define INA226_VCC1   (0x40 << 1)
-#define INA226_VCC2   (0x41 << 1)
-#define INA226_VCC3   (0x44 << 1)
-#define INA226_24V    (0x40 << 1)
-#define INA226_TEC    (0x45 << 1)
 
 /*
  * @brief         The instance of the INA226.
@@ -27,6 +15,9 @@
  * INA226[4]: TEC
  */
 INA226_HandleTypeDef ina226[MAX_INA226_CH];
+ADN8835_TypeDef adn8835;
+PID_TypeDef pid;
+Top_Env_TypeDef env;
 
 /*
  * @brief       Storage the realtime measurement values such as VCC, ICC.
@@ -44,27 +35,55 @@ void Top_Init(void)
   pIna226 = &ina226[0];
   INA226_Init(pIna226, &hi2c1, INA226_VCC1);
   INA226_SoftwareReset(pIna226);
+  INA226_SetVBUSCT(pIna226, INA226_VBUSCT_1100);
+  INA226_SetVSHCT(pIna226, INA226_VSHCT_1100);
   INA226_SetCalibrationRegister(pIna226, 0.328f, 0.1f); // max current: 0.328A, shunt res: 0.1ohm
+  INA226_SyncRegistors(pIna226);
+
 
   pIna226 = &ina226[1];
   INA226_Init(pIna226, &hi2c1, INA226_VCC2);
   INA226_SoftwareReset(pIna226);
+  INA226_SetVBUSCT(pIna226, INA226_VBUSCT_1100);
+  INA226_SetVSHCT(pIna226, INA226_VSHCT_1100);
   INA226_SetCalibrationRegister(pIna226, 0.328f, 0.1f); // max current: 0.328A, shunt res: 0.1ohm
+  INA226_SyncRegistors(pIna226);
 
   pIna226 = &ina226[2];
   INA226_Init(pIna226, &hi2c1, INA226_VCC3);
   INA226_SoftwareReset(pIna226);
+  INA226_SetVBUSCT(pIna226, INA226_VBUSCT_1100);
+  INA226_SetVSHCT(pIna226, INA226_VSHCT_1100);
   INA226_SetCalibrationRegister(pIna226, 0.328f, 0.1f); // max current: 0.328A, shunt res: 0.1ohm
+  INA226_SyncRegistors(pIna226);
 
   pIna226 = &ina226[3];
   INA226_Init(pIna226, &hi2c2, INA226_24V);
   INA226_SoftwareReset(pIna226);
+  INA226_SetVBUSCT(pIna226, INA226_VBUSCT_1100);
+  INA226_SetVSHCT(pIna226, INA226_VSHCT_1100);
   INA226_SetCalibrationRegister(pIna226, 1.0f, 0.03f); // max current: 0.328A, shunt res: 0.1ohm
+  INA226_SyncRegistors(pIna226);
 
   pIna226 = &ina226[4];
   INA226_Init(pIna226, &hi2c2, INA226_TEC);
   INA226_SoftwareReset(pIna226);
+  INA226_SetVBUSCT(pIna226, INA226_VBUSCT_1100);
+  INA226_SetVSHCT(pIna226, INA226_VSHCT_1100);
   INA226_SetCalibrationRegister(pIna226, 1.5f, 0.03f); // max current: 0.328A, shunt res: 0.1ohm
+  INA226_SyncRegistors(pIna226);
+
+  ADN8835_Init(&adn8835);
+}
+
+void Top_LoadEnvFromFlash(void)
+{
+
+}
+
+void Top_SaveEnvToFlash(void)
+{
+
 }
 
 void Top_UpdateStatus(void)
@@ -92,7 +111,7 @@ static void udpate_ina226(int ch)
   power = INA226_ReadPowerReg(&ina226[ch]);
 
   uint16_t* p = (uint16_t*)&vbus;
-  usRegInputBuf[ch * 8] = *(p+1);
+  usRegInputBuf[ch * 8 + 0] = *(p+1);
   usRegInputBuf[ch * 8 + 1] = *p;
 
   p = (uint16_t*)&shunt;
@@ -156,11 +175,77 @@ void Top_TurnOnVcc3(void)
   HAL_GPIO_WritePin(VCC3_STA_GPIO_Port, VCC3_STA_Pin, GPIO_PIN_RESET);
 }
 
-
 void Top_TurnOffVcc3(void)
 {
   HAL_GPIO_WritePin(SW_VCC3_GPIO_Port, SW_VCC3_Pin, GPIO_PIN_RESET);
   HAL_GPIO_WritePin(VCC3_STA_GPIO_Port, VCC3_STA_Pin, GPIO_PIN_SET);
 }
 
+void Top_TurnOnTec(void)
+{
+  ADN8835_Enable(&adn8835);
+}
+
+void Top_TurnOffTec(void)
+{
+  ADN8835_Disable(&adn8835);
+}
+
+void Top_SetTecNtcCoeffA(float coeff)
+{
+  adn8835.NTCCoeff.CoA = coeff;
+  env.TECConf.NTCCoeffA = coeff;
+}
+
+void Top_SetTecNtcCoeffB(float coeff)
+{
+  adn8835.NTCCoeff.CoB = coeff;
+  env.TECConf.NTCCoeffB = coeff;
+}
+
+void Top_SetTecNtcCoeffC(float coeff)
+{
+  adn8835.NTCCoeff.CoC = coeff;
+  env.TECConf.NTCCoeffC = coeff;
+}
+
+void Top_SetTecMode(TOP_TecMode_TypeDef mode)
+{
+  switch(mode)
+  {
+    case TEC_MODE_HEATER:
+      ADN8835_SetMode(&adn8835, ADN8835_HEATER_MODE);
+      env.TECConf.Mode = (int)ADN8835_HEATER_MODE;
+      break;
+
+    case TEC_MODE_TEC:
+      ADN8835_SetMode(&adn8835, ADN8835_TEC_MODE);
+      env.TECConf.Mode = (int)ADN8835_TEC_MODE;
+      break;
+  }
+}
+
+void Top_SetPidKp(float kp)
+{
+  PID_SetKp(&pid, kp);
+  env.TECConf.P = kp;
+}
+
+void Top_SetPidKi(float ki)
+{
+  PID_SetKi(&pid, ki);
+  env.TECConf.I = ki;
+}
+
+void Top_SetPidKd(float kd)
+{
+  PID_SetKd(&pid, kd);
+  env.TECConf.D = kd;
+}
+
+void Top_SetPidSamplingInterval(uint16_t ms)
+{
+  PID_SetSamplingInterval(&pid, ms);
+  env.TECConf.SamplingIntervalMs = ms;
+}
 
