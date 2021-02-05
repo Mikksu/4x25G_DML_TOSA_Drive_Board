@@ -40,8 +40,8 @@ void StartTaskRegHolding(void const * argument)
           // some of the input regs are changed.
           int nRegs = msg->NRegs;
           int regIndex = msg->RegIndex;
-          uint32_t tmp;
-          float *pf = 0;
+          uint16_t regVal;
+          float f = 0;
 
           while(nRegs > 0)
           {
@@ -54,11 +54,33 @@ void StartTaskRegHolding(void const * argument)
               case 20: // set PID P
               case 22: // set PID I
               case 24: // Set PID D
-                tmp = xMBUtilSwapWord(&usRegHoldingBuf[regIndex]);
-                pf = (float*)&tmp;
-                Top_SetPidKp(*pf);
+                f = xMBUtilWordToFloat(&usRegHoldingBuf[regIndex]);
+                if(regIndex == 20)        Top_SetPidKp(f);
+                else if(regIndex == 22)   Top_SetPidKi(f);
+                else if(regIndex == 24)   Top_SetPidKd(f);
                 break;
 
+              case 28:  // NTC coeff A
+              case 30:  // NTC coeff B
+              case 32:  // NTC coeff C
+                f = xMBUtilWordToFloat(&usRegHoldingBuf[regIndex]);
+                if(regIndex == 28)        Top_SetTecNtcCoeffA(f);
+                else if(regIndex == 30)   Top_SetTecNtcCoeffB(f);
+                else if(regIndex == 32)   Top_SetTecNtcCoeffC(f);
+                break;
+
+              case 99:  // Env Operation
+                regVal = usRegHoldingBuf[regIndex];
+                usRegHoldingBuf[regIndex] = 0x0;
+
+                if (regVal == 0x53) // Save
+                {
+                  Top_SaveEnvToFlash();
+                }
+                else if (regVal == 0x4C) // Reload
+                {
+                  Top_LoadEnvFromFlash();
+                }
             }
 
             nRegs--;
@@ -67,9 +89,6 @@ void StartTaskRegHolding(void const * argument)
 
           osPoolFree(poolHoldingMsgHandle, (void*)msg);
         }
-
-
-
     }
   }
 }
@@ -80,7 +99,7 @@ void StartTaskRegHolding(void const * argument)
  */
 void CreateMbHoldingProcTask(void)
 {
-  osThreadDef(regHoldingTask, StartTaskRegHolding, osPriorityNormal, 0, 128);
+  osThreadDef(regHoldingTask, StartTaskRegHolding, osPriorityNormal, 0, 256);
   regHoldingTaskHandle = osThreadCreate(osThread(regHoldingTask), NULL);
 }
 

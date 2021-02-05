@@ -10,7 +10,7 @@
 
 extern osSemaphoreId semADBusyHandle;
 
-static float ConvertNTC2Celsius(ADN8835_TypeDef* adn8835, int Ohm)
+static float ConvertNTC2Celsius(ADN8835_TypeDef* adn8835, float Ohm)
 {
     // refers to https://www.thermistor.com/calculators?r=sheccr
     
@@ -26,8 +26,8 @@ void ADN8835_Init(ADN8835_TypeDef* adn8835)
   adn8835->EnPin.Gpio                      = GPIOA;
   adn8835->EnPin.Pin                       = GPIO_PIN_5;
   adn8835->Analog.Handle                   = &hadc1;                   // ADC1 is used
-  adn8835->Analog.VrefADC                  = 3300;                     // 2.5v voltage is used as the ADC Vref
-  adn8835->Analog.VrefNTC                  = 3300;                     // 2.5v is used as the power supply of the NTC
+  adn8835->Analog.VrefADC                  = 3300;                     // 3.3v voltage is used as the ADC Vref
+  adn8835->Analog.VrefNTC                  = 2500;                     // 2.5v is used as the power supply of the NTC
   adn8835->Analog.RrefNTC                  = 10000;                    // 10K resistor is used as the reference of the NTC
   adn8835->Analog.ChannelNTC               = ADC_CHANNEL_0;            // Channel 0 is used to measure the TOSA temperature
   adn8835->Analog.ChannelVTEC              = ADC_CHANNEL_10;           // Channel 10 is used to measure the VTEC
@@ -85,14 +85,14 @@ void ADN8835_SetControlLevel(ADN8835_TypeDef* adn8835, int level)
     HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, dacHex);
 }
 
-int ADN8835_ReadTemp(ADN8835_TypeDef* adn8835)
+float ADN8835_ReadTemp(ADN8835_TypeDef* adn8835)
 {
     if(adn8835->IsInitialized)
     {
         ADC_ChannelConfTypeDef sConfig;
         uint32_t adcHex = 0;
-        uint32_t voltNTC = 0;
-        uint32_t ohmNTC = 0;
+        float voltNTC = 0;
+        float ohmNTC = 0;
         float c;
 
         if(osSemaphoreWait(semADBusyHandle, 200) == osOK)
@@ -112,23 +112,24 @@ int ADN8835_ReadTemp(ADN8835_TypeDef* adn8835)
 
             adcHex /= ADC_AVERAGE_TIMES;
 
-            voltNTC = adcHex * adn8835->Analog.VrefADC / 4096;
+            voltNTC = (float)(adcHex * adn8835->Analog.VrefADC) / 4096.0f;
 						
 						// ohmNTC = voltNTC / 0.098; // 0.098 is the output value of the I-Source.
+            float curr = ((float)(adn8835->Analog.VrefNTC) - voltNTC) / (float)adn8835->Analog.RrefNTC;
             
-						ohmNTC = voltNTC * adn8835->Analog.RrefNTC/ (adn8835->Analog.VrefNTC - voltNTC);
+						ohmNTC = voltNTC / curr;
 
-            c =  ConvertNTC2Celsius(adn8835, ohmNTC) * 100;
+            c =  ConvertNTC2Celsius(adn8835, ohmNTC);
         }
         else
         {
             // AD is busy
-            c = ADN8835_INVALIED_VALUE;
+            c = NAN;
         }
         
         osSemaphoreRelease(semADBusyHandle);
         
-        return (int)(c);
+        return c;
     }
     else
     {

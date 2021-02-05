@@ -11,11 +11,11 @@ HAL_StatusTypeDef INA226_Init(INA226_HandleTypeDef* ina226, I2C_HandleTypeDef* h
 
   // try to read the manufacturer ID and the Die ID to make sure the chip works is connected.
   // manufacture id
-  i2cStatus = HAL_I2C_Mem_Read(&hi2c1, address, INA226_REG_MANUF_ID, I2C_MEMADD_SIZE_8BIT, (uint8_t*)ina226->ManufID, 2, 100);
+  i2cStatus = HAL_I2C_Mem_Read(hi2c, address, INA226_REG_MANUF_ID, I2C_MEMADD_SIZE_8BIT, (uint8_t*)ina226->ManufID, 2, 100);
   if(i2cStatus != HAL_OK) return i2cStatus;
 
   // Die id
-  i2cStatus = HAL_I2C_Mem_Read(&hi2c1, address, INA226_REG_DIE_ID, I2C_MEMADD_SIZE_8BIT, (uint8_t*)ina226->DieID, 2, 100);
+  i2cStatus = HAL_I2C_Mem_Read(hi2c, address, INA226_REG_DIE_ID, I2C_MEMADD_SIZE_8BIT, (uint8_t*)ina226->DieID, 2, 100);
   if(i2cStatus != HAL_OK) return i2cStatus;
 
 
@@ -107,7 +107,7 @@ float INA226_ReadPowerReg(INA226_HandleTypeDef* ina226)
 
   i2cStatus = i2c_read(ina226, INA226_REG_POWER, &regval);
   if(i2cStatus == HAL_OK)
-    return (int16_t)regval * ina226->CalibrationParam.CurrentLsbA * 25;
+    return (int16_t)regval * ina226->CurrentLsbA * 25;
   else
     return NAN;
 }
@@ -119,7 +119,7 @@ float INA226_ReadCurrentReg(INA226_HandleTypeDef* ina226)
 
   i2cStatus = i2c_read(ina226, INA226_REG_CURRENT, &regval);
   if(i2cStatus == HAL_OK)
-    return (int16_t)regval * ina226->CalibrationParam.CurrentLsbA;
+    return (int16_t)regval * ina226->CurrentLsbA;
   else
     return NAN;
 }
@@ -164,7 +164,7 @@ HAL_StatusTypeDef INA226_SetAveragingMode(INA226_HandleTypeDef* ina226, INA226_A
 
   // clear the corresponding bits.
   regval &= (~INA226_CONFIG_AVG);
-  regval |= mode;
+  regval |= (mode << INA226_CONFIG_AVG_POS);
 
   i2cStatus = i2c_write(ina226, INA226_REG_CONFIG, regval);
 
@@ -187,7 +187,7 @@ HAL_StatusTypeDef INA226_SetVBUSCT(INA226_HandleTypeDef* ina226, INA226_VBUSCTTy
 
   // clear the corresponding bits.
   regval &= (~INA226_CONFIG_VBUSCT);
-  regval |= mode;
+  regval |= (mode << INA226_CONFIG_VBUSCT_POS);
 
   i2cStatus = i2c_write(ina226, INA226_REG_CONFIG, regval);
 
@@ -210,7 +210,7 @@ HAL_StatusTypeDef INA226_SetVSHCT(INA226_HandleTypeDef* ina226, INA226_VSHCTType
 
   // clear the corresponding bits.
   regval &= (~INA226_CONFIG_VSHCT);
-  regval |= mode;
+  regval |= (mode << INA226_CONFIG_VSHCT_POS);
 
   i2cStatus = i2c_write(ina226, INA226_REG_CONFIG, regval);
 
@@ -262,7 +262,7 @@ HAL_StatusTypeDef INA226_SetCalibrationRegister(INA226_HandleTypeDef* ina226, fl
     ina226->RegCalibration = caliInt;
     ina226->CalibrationParam.MaxExceptedCurrentA = maxExceptedCurrentA;
     ina226->CalibrationParam.ShuntResistorOhm = shuntResOhm;
-    ina226->CalibrationParam.CurrentLsbA = maxExceptedCurrentA / 32768.0;
+    ina226->CurrentLsbA = maxExceptedCurrentA / 32768.0;
   }
 
   return i2cStatus;

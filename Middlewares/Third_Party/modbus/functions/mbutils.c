@@ -112,17 +112,33 @@ xMBUtilGetBits( UCHAR * ucByteBuf, USHORT usBitOffset, UCHAR ucNBits )
     return ( UCHAR ) usWordBuf;
 }
 
-ULONG
-xMBUtilSwapWord(USHORT* ucWordBuf)
+float
+xMBUtilWordToFloat(USHORT* usWordBuf)
 {
-  UCHAR *p = (UCHAR*)ucWordBuf;
+
+  UCHAR *p = (UCHAR*)usWordBuf;
   USHORT w0 = (*p << 8) | (*(p + 1));
 
-  p = (UCHAR*)(ucWordBuf + 1);
+  p = (UCHAR*)(usWordBuf + 1);
   USHORT w1 = (*p << 8) | (*(p + 1));
 
   ULONG ret = w1 << 16 | w0;
-  return ret;
+
+  float *pf = (float*)&ret;
+
+  return *pf;
+}
+
+void xMBUtilFloatToWord(float value, USHORT* usWordBuf)
+{
+  float tmp = value;
+  USHORT *us = (USHORT*)&tmp;
+
+  *usWordBuf = ((*us >> 8) & 0xffff) | (*us << 8);
+
+  us++;
+  usWordBuf++;
+  *usWordBuf = ((*us >> 8) & 0xffff) | (*us << 8);
 }
 
 eMBException

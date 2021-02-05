@@ -31,40 +31,40 @@
 
 typedef enum
 {
-  INA266_AVG_1 =    (0 << INA226_CONFIG_AVG_POS),
-  INA266_AVG_4 =    (1 << INA226_CONFIG_AVG_POS),
-  INA266_AVG_16 =   (2 << INA226_CONFIG_AVG_POS),
-  INA266_AVG_64 =   (3 << INA226_CONFIG_AVG_POS),
-  INA266_AVG_128 =  (4 << INA226_CONFIG_AVG_POS),
-  INA266_AVG_256 =  (5 << INA226_CONFIG_AVG_POS),
-  INA266_AVG_512 =  (6 << INA226_CONFIG_AVG_POS),
-  INA266_AVG_1024 = (7 << INA226_CONFIG_AVG_POS)
+  INA266_AVG_1 =    (0),
+  INA266_AVG_4 =    (1),
+  INA266_AVG_16 =   (2),
+  INA266_AVG_64 =   (3),
+  INA266_AVG_128 =  (4),
+  INA266_AVG_256 =  (5),
+  INA266_AVG_512 =  (6),
+  INA266_AVG_1024 = (7)
 
 } INA226_AvgModeTypeDef;
 
 typedef enum
 {
-  INA226_VBUSCT_140     = (0 << INA226_CONFIG_VBUSCT_POS),
-  INA226_VBUSCT_204     = (1 << INA226_CONFIG_VBUSCT_POS),
-  INA226_VBUSCT_332     = (2 << INA226_CONFIG_VBUSCT_POS),
-  INA226_VBUSCT_588     = (3 << INA226_CONFIG_VBUSCT_POS),
-  INA226_VBUSCT_1100    = (4 << INA226_CONFIG_VBUSCT_POS),
-  INA226_VBUSCT_2116    = (5 << INA226_CONFIG_VBUSCT_POS),
-  INA226_VBUSCT_4156    = (6 << INA226_CONFIG_VBUSCT_POS),
-  INA226_VBUSCT_8244    = (7 << INA226_CONFIG_VBUSCT_POS)
+  INA226_VBUSCT_140     = (0),
+  INA226_VBUSCT_204     = (1),
+  INA226_VBUSCT_332     = (2),
+  INA226_VBUSCT_588     = (3),
+  INA226_VBUSCT_1100    = (4),
+  INA226_VBUSCT_2116    = (5),
+  INA226_VBUSCT_4156    = (6),
+  INA226_VBUSCT_8244    = (7)
 
 } INA226_VBUSCTTypeDef;
 
 typedef enum
 {
-  INA226_VSHCT_140     = (0 << INA226_CONFIG_VSHCT_POS),
-  INA226_VSHCT_204     = (1 << INA226_CONFIG_VSHCT_POS),
-  INA226_VSHCT_332     = (2 << INA226_CONFIG_VSHCT_POS),
-  INA226_VSHCT_588     = (3 << INA226_CONFIG_VSHCT_POS),
-  INA226_VSHCT_1100    = (4 << INA226_CONFIG_VSHCT_POS),
-  INA226_VSHCT_2116    = (5 << INA226_CONFIG_VSHCT_POS),
-  INA226_VSHCT_4156    = (6 << INA226_CONFIG_VSHCT_POS),
-  INA226_VSHCT_8244    = (7 << INA226_CONFIG_VSHCT_POS)
+  INA226_VSHCT_140     = (0),
+  INA226_VSHCT_204     = (1),
+  INA226_VSHCT_332     = (2),
+  INA226_VSHCT_588     = (3),
+  INA226_VSHCT_1100    = (4),
+  INA226_VSHCT_2116    = (5),
+  INA226_VSHCT_4156    = (6),
+  INA226_VSHCT_8244    = (7)
 
 } INA226_VSHCTTypeDef;
 
@@ -86,7 +86,7 @@ typedef struct
 {
     float                       MaxExceptedCurrentA;
     float                       ShuntResistorOhm;
-    float                       CurrentLsbA;
+
 } INA226_CalParamTypeDef;
 
 
@@ -128,6 +128,7 @@ typedef struct __INA226_HandleTypeDef
   };
 
   INA226_CalParamTypeDef        CalibrationParam;                 /*!< The parameters to calculate the Calibration Register  */
+  float                         CurrentLsbA;                      /*!< The LSB of the current in A              */
 
   void                          (*OnAvgModeChangedCb)(struct __INA226_HandleTypeDef*, int);
   void                          (*OnVBUSCTChangedCb)(struct __INA226_HandleTypeDef*, int);

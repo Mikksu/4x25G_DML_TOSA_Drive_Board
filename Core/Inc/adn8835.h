@@ -68,7 +68,7 @@ void ADN8835_Disable(ADN8835_TypeDef* adn8835);
 void ADN8835_SetMode(ADN8835_TypeDef* adn8835, ADN8835_Mode_TypeDef mode);
 void ADN8835_SetTargetTemperture(ADN8835_TypeDef* adn8835, int value);
 void ADN8835_SetControlLevel(ADN8835_TypeDef* adn8835, int value);
-int ADN8835_ReadTemp(ADN8835_TypeDef* adn8835);
+float ADN8835_ReadTemp(ADN8835_TypeDef* adn8835);
 int ADN8835_ReadVTEC(ADN8835_TypeDef* adn8835);
 int ADN8835_ReadITEC(ADN8835_TypeDef* adn8835);
 

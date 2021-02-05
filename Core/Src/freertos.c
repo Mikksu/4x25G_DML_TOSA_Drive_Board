@@ -41,6 +41,9 @@ extern MB_MSG_TypeDef MB_MSG_Disc;
 extern MB_MSG_TypeDef MB_MSG_Holding;
 extern MB_MSG_TypeDef MB_MSG_Input;
 
+osSemaphoreId semADBusyHandle;
+
+
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -106,6 +109,8 @@ void MX_FREERTOS_Init(void) {
 
   /* USER CODE BEGIN RTOS_SEMAPHORES */
   /* add semaphores, ... */
+  osSemaphoreDef(semADBusy);
+  semADBusyHandle = osSemaphoreCreate(osSemaphore(semADBusy), 1);
   /* USER CODE END RTOS_SEMAPHORES */
 
   /* USER CODE BEGIN RTOS_TIMERS */
@@ -120,11 +125,11 @@ void MX_FREERTOS_Init(void) {
 
   /* Create the thread(s) */
   /* definition and creation of defaultTask */
-  osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 128);
+  osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 256);
   defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
 
   /* USER CODE BEGIN RTOS_THREADS */
-  osThreadDef(modbusPollingTask, StartModbusPollingTask, osPriorityNormal, 0, 128);
+  osThreadDef(modbusPollingTask, StartModbusPollingTask, osPriorityNormal, 0, 256);
   modbusPollingTaskHandle = osThreadCreate(osThread(modbusPollingTask), NULL);
 
   CreateMbCoilProcTask();

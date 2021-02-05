@@ -100,7 +100,8 @@ UCHAR           xMBUtilGetBits( UCHAR * ucByteBuf, USHORT usBitOffset,
                                 UCHAR ucNBits );
 
 
-ULONG           xMBUtilSwapWord(USHORT* ucWordBuf);
+float           xMBUtilWordToFloat(USHORT* ucWordBuf);
+void            xMBUtilFloatToWord(float value, USHORT* usWordBuf);
 
 /*! @} */
 

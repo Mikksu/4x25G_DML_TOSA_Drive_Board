@@ -3,6 +3,8 @@
 #include "tim.h"
 #include "ina226.h"
 
+#include "mb.h"
+#include "mbutils.h"
 
 
 /*
@@ -17,21 +19,25 @@
 INA226_HandleTypeDef ina226[MAX_INA226_CH];
 ADN8835_TypeDef adn8835;
 PID_TypeDef pid;
-Top_Env_TypeDef env;
+Top_Env_TypeDef *env;
 
 /*
  * @brief       Storage the realtime measurement values such as VCC, ICC.
  */
 extern uint16_t usRegInputBuf[100];
+extern uint16_t usRegHoldingBuf[100];
 
 
 static void udpate_ina226(int ch);
 
 void Top_Init(void)
 {
-  INA226_HandleTypeDef* pIna226;
-  // create the instance of the INA226.
+  env = (Top_Env_TypeDef*)usRegHoldingBuf;
+  Top_LoadEnvFromFlash();
 
+  INA226_HandleTypeDef* pIna226;
+
+  // create the instance of the INA226.
   pIna226 = &ina226[0];
   INA226_Init(pIna226, &hi2c1, INA226_VCC1);
   INA226_SoftwareReset(pIna226);
@@ -62,7 +68,7 @@ void Top_Init(void)
   INA226_SoftwareReset(pIna226);
   INA226_SetVBUSCT(pIna226, INA226_VBUSCT_1100);
   INA226_SetVSHCT(pIna226, INA226_VSHCT_1100);
-  INA226_SetCalibrationRegister(pIna226, 1.0f, 0.03f); // max current: 0.328A, shunt res: 0.1ohm
+  INA226_SetCalibrationRegister(pIna226, 1.0f, 0.03f); // max current: 1A, shunt res: 0.03ohm
   INA226_SyncRegistors(pIna226);
 
   pIna226 = &ina226[4];
@@ -70,7 +76,7 @@ void Top_Init(void)
   INA226_SoftwareReset(pIna226);
   INA226_SetVBUSCT(pIna226, INA226_VBUSCT_1100);
   INA226_SetVSHCT(pIna226, INA226_VSHCT_1100);
-  INA226_SetCalibrationRegister(pIna226, 1.5f, 0.03f); // max current: 0.328A, shunt res: 0.1ohm
+  INA226_SetCalibrationRegister(pIna226, 1.5f, 0.03f); // max current: 1.5A, shunt res: 0.03ohm
   INA226_SyncRegistors(pIna226);
 
   ADN8835_Init(&adn8835);
@@ -78,19 +84,49 @@ void Top_Init(void)
 
 void Top_LoadEnvFromFlash(void)
 {
-
+  // copy the env from the flash to the memory.
+  memcpy((uint8_t*)env, (uint8_t*)MEM_BASE_ENV, sizeof(Top_Env_TypeDef));
 }
 
 void Top_SaveEnvToFlash(void)
 {
+  int len = sizeof(Top_Env_TypeDef);
+  uint8_t* pdata;
+  uint32_t pmem;
 
+  uint32_t sectorErr;
+
+  FLASH_EraseInitTypeDef eraseinit;
+  eraseinit.TypeErase = FLASH_TYPEERASE_SECTORS;
+  eraseinit.Banks = FLASH_BANK_1;
+  eraseinit.Sector = FLASH_SECTOR_11;
+  eraseinit.NbSectors = 1;
+  eraseinit.VoltageRange = FLASH_VOLTAGE_RANGE_3;
+
+
+  HAL_FLASH_Unlock();
+
+  if(HAL_FLASHEx_Erase(&eraseinit, &sectorErr) == HAL_OK)
+  {
+    pdata = (uint8_t*)env;
+    pmem = MEM_BASE_ENV;
+
+    for(int i = 0; i < len; i++)
+      HAL_FLASH_Program(FLASH_TYPEPROGRAM_BYTE, pmem++, *pdata++);
+  }
+
+  HAL_FLASH_Lock();
 }
 
 void Top_UpdateStatus(void)
 {
+  // read all INA226s
   for(int i = 0; i < MAX_INA226_CH; i++)
     udpate_ina226(i);
 
+  // read real-time temperature
+  float ntc = ADN8835_ReadTemp(&adn8835);
+  xMBUtilFloatToWord(ntc, &usRegInputBuf[44]);
 }
 
 static void udpate_ina226(int ch)
@@ -110,6 +146,12 @@ static void udpate_ina226(int ch)
   curr = INA226_ReadCurrentReg(&ina226[ch]);
   power = INA226_ReadPowerReg(&ina226[ch]);
 
+  xMBUtilFloatToWord(vbus, &usRegInputBuf[ch * 8 + 0]);
+  xMBUtilFloatToWord(shunt, &usRegInputBuf[ch * 8 + 2]);
+  xMBUtilFloatToWord(curr, &usRegInputBuf[ch * 8 + 4]);
+  xMBUtilFloatToWord(power, &usRegInputBuf[ch * 8 + 6]);
+
+  /*
   uint16_t* p = (uint16_t*)&vbus;
   usRegInputBuf[ch * 8 + 0] = *(p+1);
   usRegInputBuf[ch * 8 + 1] = *p;
@@ -125,6 +167,7 @@ static void udpate_ina226(int ch)
   p = (uint16_t*)&power;
   usRegInputBuf[ch * 8 + 6] = *(p+1);
   usRegInputBuf[ch * 8 + 7] = *p;
+  */
 }
 
 void Top_TurnOnLed(void)
@@ -194,19 +237,19 @@ void Top_TurnOffTec(void)
 void Top_SetTecNtcCoeffA(float coeff)
 {
   adn8835.NTCCoeff.CoA = coeff;
-  env.TECConf.NTCCoeffA = coeff;
+  //env->TECConf.NTCCoeffA = coeff;
 }
 
 void Top_SetTecNtcCoeffB(float coeff)
 {
   adn8835.NTCCoeff.CoB = coeff;
-  env.TECConf.NTCCoeffB = coeff;
+  //env->TECConf.NTCCoeffB = coeff;
 }
 
 void Top_SetTecNtcCoeffC(float coeff)
 {
   adn8835.NTCCoeff.CoC = coeff;
-  env.TECConf.NTCCoeffC = coeff;
+  //env->TECConf.NTCCoeffC = coeff;
 }
 
 void Top_SetTecMode(TOP_TecMode_TypeDef mode)
@@ -215,12 +258,12 @@ void Top_SetTecMode(TOP_TecMode_TypeDef mode)
   {
     case TEC_MODE_HEATER:
       ADN8835_SetMode(&adn8835, ADN8835_HEATER_MODE);
-      env.TECConf.Mode = (int)ADN8835_HEATER_MODE;
+      //env->TECConf.Mode = (int)ADN8835_HEATER_MODE;
       break;
 
     case TEC_MODE_TEC:
       ADN8835_SetMode(&adn8835, ADN8835_TEC_MODE);
-      env.TECConf.Mode = (int)ADN8835_TEC_MODE;
+      //env->TECConf.Mode = (int)ADN8835_TEC_MODE;
       break;
   }
 }
@@ -228,24 +271,24 @@ void Top_SetTecMode(TOP_TecMode_TypeDef mode)
 void Top_SetPidKp(float kp)
 {
   PID_SetKp(&pid, kp);
-  env.TECConf.P = kp;
+  //env->TECConf.P = kp;
 }
 
 void Top_SetPidKi(float ki)
 {
   PID_SetKi(&pid, ki);
-  env.TECConf.I = ki;
+  env->TECConf.I = ki;
 }
 
 void Top_SetPidKd(float kd)
 {
   PID_SetKd(&pid, kd);
-  env.TECConf.D = kd;
+  env->TECConf.D = kd;
 }
 
 void Top_SetPidSamplingInterval(uint16_t ms)
 {
   PID_SetSamplingInterval(&pid, ms);
-  env.TECConf.SamplingIntervalMs = ms;
+  env->TECConf.SamplingIntervalMs = ms;
 }
 
