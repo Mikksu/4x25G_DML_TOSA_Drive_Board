@@ -2,6 +2,7 @@
 #include "mb.h"
 #include "mbutils.h"
 #include "top.h"
+#include "dac.h"
 
 #define REG_HOLDING_START 0
 #define REG_HOLDING_NREGS 100
@@ -41,45 +42,38 @@ void StartTaskRegHolding(void const * argument)
           int nRegs = msg->NRegs;
           int regIndex = msg->RegIndex;
           uint16_t regVal;
-          float f = 0;
 
           while(nRegs > 0)
           {
             switch(regIndex)
             {
-              case 0: // set vcc1 op mode
 
+              case REG_HOLDING_POS_DAC_OUTPUT:
+                ;
+                uint16_t dacHex = (uint16_t)(env->TECConf.DacOutputMv / env->TECConf.ADCVref * 4096.0f);
+                HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, dacHex);
+                HAL_DAC_Start(&hdac, DAC_CHANNEL_1);
                 break;
 
-              case 20: // set PID P
-              case 22: // set PID I
-              case 24: // Set PID D
-                f = xMBUtilWordToFloat(&usRegHoldingBuf[regIndex]);
-                if(regIndex == 20)        Top_SetPidKp(f);
-                else if(regIndex == 22)   Top_SetPidKi(f);
-                else if(regIndex == 24)   Top_SetPidKd(f);
-                break;
-
-              case 28:  // NTC coeff A
-              case 30:  // NTC coeff B
-              case 32:  // NTC coeff C
-                f = xMBUtilWordToFloat(&usRegHoldingBuf[regIndex]);
-                if(regIndex == 28)        Top_SetTecNtcCoeffA(f);
-                else if(regIndex == 30)   Top_SetTecNtcCoeffB(f);
-                else if(regIndex == 32)   Top_SetTecNtcCoeffC(f);
-                break;
-
-              case 99:  // Env Operation
+              case REG_HOLDING_POS_EXECUTE:  // Env Operation
                 regVal = usRegHoldingBuf[regIndex];
                 usRegHoldingBuf[regIndex] = 0x0;
 
-                if (regVal == 0x53) // Save
+                if (regVal == 17747) // Save Env to the flash
                 {
                   Top_SaveEnvToFlash();
                 }
-                else if (regVal == 0x4C) // Reload
+                else if (regVal == 17740) // Reload Env from the flash
                 {
                   Top_LoadEnvFromFlash();
+                }
+                else if (regVal == 18770) // Read data from device via I2C
+                {
+
+                }
+                else if (regVal == 18775) // Write data to device via I2C
+                {
+
                 }
             }
 

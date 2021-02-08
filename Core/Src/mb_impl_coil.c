@@ -67,28 +67,27 @@ static void StartTaskRegCoil(void const * argument)
 
                 bitValue = BIT_ADDR((uint32_t)usCoilBuf, regBitIndex);
 
-                if(regBitIndex == 0)
+                if(regBitIndex == 0)  // VCC1 ON/OFF
                 {
                   if(bitValue == 0) Top_TurnOffVcc1();
                   else Top_TurnOnVcc1();
                 }
-                else if(regBitIndex == 1)
+                else if(regBitIndex == 1) // VCC2 ON/OFF
                 {
                   if(bitValue == 0) Top_TurnOffVcc2();
                   else Top_TurnOnVcc2();
                 }
-
-                else if(regBitIndex == 2)
+                else if(regBitIndex == 2) // VCC3 ON/OFF
                 {
                   if(bitValue == 0) Top_TurnOffVcc3();
                   else Top_TurnOnVcc3();
                 }
-                else if(regBitIndex == 3)
+                else if(regBitIndex == 3) // TEC ON/OFF
                 {
                   if(bitValue == 0) Top_TurnOffTec();
                   else Top_TurnOnTec();
                 }
-                else if(regBitIndex == 4)
+                else if(regBitIndex == 4) // TOSA POWER SUPPLY ON/OFF
                 {
                   if(bitValue == 0) Top_SetTecMode(TEC_MODE_HEATER);
                   else Top_SetTecMode(TEC_MODE_TEC);

@@ -13,20 +13,6 @@ void PID_Init(PID_TypeDef* pid, float kp, float ki, float kd, int interval)
     errLastLast = 0;
 }
 
-void PID_SetKp(PID_TypeDef* pid, float data)
-{
-    pid->Kp = data;
-}
-
-void PID_SetKi(PID_TypeDef* pid, float data)
-{
-    pid->Ki = data;
-}
-
-void PID_SetKd(PID_TypeDef* pid, float data)
-{
-    pid->Kd = data;
-}
 
 void PID_SetSamplingInterval(PID_TypeDef* pid, uint16_t data)
 {

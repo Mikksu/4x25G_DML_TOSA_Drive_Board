@@ -1,3 +1,4 @@
+#include <math.h>
 #include "top.h"
 #include "gpio.h"
 #include "tim.h"
@@ -18,8 +19,8 @@
  */
 INA226_HandleTypeDef ina226[MAX_INA226_CH];
 ADN8835_TypeDef adn8835;
-PID_TypeDef pid;
 Top_Env_TypeDef *env;
+Top_Monitoring_TypeDef *mon;
 
 /*
  * @brief       Storage the realtime measurement values such as VCC, ICC.
@@ -27,12 +28,44 @@ Top_Env_TypeDef *env;
 extern uint16_t usRegInputBuf[100];
 extern uint16_t usRegHoldingBuf[100];
 
+static float vbus = 0, vshunt = 0, curr = 0, power = 0;
+static void udpate_ina226(int ch)
+{
+  /* The definition of CH:
+   * INA226 1: VCC1----------
+   * INA226 2: VCC2
+   * INA226 3: VCC3
+   * INA226 4: 24V
+   * INA226 5: TEC
+   */
 
-static void udpate_ina226(int ch);
+  vbus = INA226_ReadBusVoltageReg(&ina226[ch]);
+  vshunt = INA226_ReadShuntVoltageReg(&ina226[ch]);
+  curr = INA226_ReadCurrentReg(&ina226[ch]);
+  power = INA226_ReadPowerReg(&ina226[ch]);
+
+  mon->INA226Mon[ch].Vcc = vbus;
+  mon->INA226Mon[ch].Vshunt = vbus;
+  mon->INA226Mon[ch].Current = curr;
+  mon->INA226Mon[ch].Power = power;
+
+}
+
+static void init_monitoring_buff(void)
+{
+  mon->Tec.TargetTemp = NAN;
+  mon->Tec.PidInc = NAN;
+  mon->Tec.PidCtlLevel = NAN;
+}
 
 void Top_Init(void)
 {
+  // map to registers of the modbus.
   env = (Top_Env_TypeDef*)usRegHoldingBuf;
+  mon = (Top_Monitoring_TypeDef*)usRegInputBuf;
+  init_monitoring_buff();
+
+  // load the env from the flash.
   Top_LoadEnvFromFlash();
 
   INA226_HandleTypeDef* pIna226;
@@ -80,6 +113,8 @@ void Top_Init(void)
   INA226_SyncRegistors(pIna226);
 
   ADN8835_Init(&adn8835);
+
+  Top_TurnOffTec();
 }
 
 void Top_LoadEnvFromFlash(void)
@@ -125,50 +160,21 @@ void Top_UpdateStatus(void)
     udpate_ina226(i);
 
   // read real-time temperature
-  float ntc = ADN8835_ReadTemp(&adn8835);
-  xMBUtilFloatToWord(ntc, &usRegInputBuf[44]);
+  if(adn8835.IsAutoTuningStarted == 0)
+    Top_ReadRealtimeTemp();
+
+  // read VTEC/ITEC
+  mon->Tec.Vtec = ADN8835_ReadVTEC(&adn8835, env->TECConf.ADCVref) / 1000; // convert mV to V
+  mon->Tec.Itec = ADN8835_ReadITEC(&adn8835, env->TECConf.ADCVref) / 1000; // convert mA to A
 }
 
-static void udpate_ina226(int ch)
+float Top_ReadRealtimeTemp(void)
 {
-  /* The definition of CH:
-   * INA226 1: VCC1
-   * INA226 2: VCC2
-   * INA226 3: VCC3
-   * INA226 4: 24V
-   * INA226 5: TEC
-   */
-
-  float vbus = 0, power = 0, shunt = 0, curr = 0;
-
-  vbus = INA226_ReadBusVoltageReg(&ina226[ch]);
-  shunt = INA226_ReadShuntVoltageReg(&ina226[ch]);
-  curr = INA226_ReadCurrentReg(&ina226[ch]);
-  power = INA226_ReadPowerReg(&ina226[ch]);
-
-  xMBUtilFloatToWord(vbus, &usRegInputBuf[ch * 8 + 0]);
-  xMBUtilFloatToWord(shunt, &usRegInputBuf[ch * 8 + 2]);
-  xMBUtilFloatToWord(curr, &usRegInputBuf[ch * 8 + 4]);
-  xMBUtilFloatToWord(power, &usRegInputBuf[ch * 8 + 6]);
-
-  /*
-  uint16_t* p = (uint16_t*)&vbus;
-  usRegInputBuf[ch * 8 + 0] = *(p+1);
-  usRegInputBuf[ch * 8 + 1] = *p;
-
-  p = (uint16_t*)&shunt;
-  usRegInputBuf[ch * 8 + 2] = *(p+1);
-  usRegInputBuf[ch * 8 + 3] = *p;
-
-  p = (uint16_t*)&curr;
-  usRegInputBuf[ch * 8 + 4] = *(p+1);
-  usRegInputBuf[ch * 8 + 5] = *p;
-
-  p = (uint16_t*)&power;
-  usRegInputBuf[ch * 8 + 6] = *(p+1);
-  usRegInputBuf[ch * 8 + 7] = *p;
-  */
+  float temp = ADN8835_ReadTemp(&adn8835, env->TECConf.ADCVref, env->TECConf.NTCVref, env->TECConf.NTCCoeffA, env->TECConf.NTCCoeffB, env->TECConf.NTCCoeffC);
+  mon->Tec.RtTemp = temp;
+  return temp;
 }
+
 
 void Top_TurnOnLed(void)
 {
@@ -231,25 +237,11 @@ void Top_TurnOnTec(void)
 
 void Top_TurnOffTec(void)
 {
+  ADN8835_SetControlLevel(&adn8835, 0, env->TECConf.ADCVref);
   ADN8835_Disable(&adn8835);
-}
 
-void Top_SetTecNtcCoeffA(float coeff)
-{
-  adn8835.NTCCoeff.CoA = coeff;
-  //env->TECConf.NTCCoeffA = coeff;
-}
-
-void Top_SetTecNtcCoeffB(float coeff)
-{
-  adn8835.NTCCoeff.CoB = coeff;
-  //env->TECConf.NTCCoeffB = coeff;
-}
-
-void Top_SetTecNtcCoeffC(float coeff)
-{
-  adn8835.NTCCoeff.CoC = coeff;
-  //env->TECConf.NTCCoeffC = coeff;
+  // clear the values of the monitoring.
+  init_monitoring_buff();
 }
 
 void Top_SetTecMode(TOP_TecMode_TypeDef mode)
@@ -268,27 +260,63 @@ void Top_SetTecMode(TOP_TecMode_TypeDef mode)
   }
 }
 
-void Top_SetPidKp(float kp)
+void Top_TecTune(void)
 {
-  PID_SetKp(&pid, kp);
-  //env->TECConf.P = kp;
+    float rtTemp = Top_ReadRealtimeTemp();
+    if(isnan(rtTemp))
+    {
+      // if we don't get the correct temperature, stop tuning.
+      Top_TurnOffTec();
+      Top_SetErrorCode(ERR_PID_INVALID_RTTEMP);
+    }
+    else
+    {
+
+      if(isnan(env->TECConf.TargetTemp))
+      {
+        Top_TurnOffTec();
+        Top_SetErrorCode(ERR_PID_INVALID_TARGET_TEMP);
+      }
+      else
+      {
+        mon->Tec.TecMode = env->TECConf.Mode;
+        mon->Tec.TecPolarity = env->TECConf.Polarity;
+
+        // start to control the temperature.
+        float inc = ADN8835_PidTune(&adn8835, rtTemp, env->TECConf.TargetTemp, env->TECConf.P, env->TECConf.I, env->TECConf.D);
+        mon->Tec.PidInc = inc;
+        mon->Tec.TargetTemp = env->TECConf.TargetTemp;
+
+        /* NOTE
+          * For the Jupiter TOSA, >1250mV makes it cooller, <1250mV makes it hotter, so the inc should be plused to the controller level.
+          * If you want the controller direction reversed, simply change the plus to minus.
+          */
+        // invert the TEC+/- polarity according to the configuration.
+        int invertPolarity = 1;
+        if(env->TECConf.Polarity == 1)
+          invertPolarity = -1;
+
+        inc *= invertPolarity;
+
+        float ctrlLevel = adn8835.PIDParam.LastTempCtrlLevel - inc;
+
+        //TODO The mode should be checked, the tuning logic of the Heater and the TEC is different.
+        if(ctrlLevel > 1250.0f)
+            ctrlLevel = 1250.0f;
+        else if(ctrlLevel < -1250.0f)
+            ctrlLevel = -1250.0f;
+
+        mon->Tec.PidCtlLevel = ctrlLevel;
+
+        ADN8835_SetControlLevel(&adn8835, ctrlLevel, env->TECConf.ADCVref);
+        adn8835.PIDParam.LastTempCtrlLevel = ctrlLevel;
+      }
+    }
 }
 
-void Top_SetPidKi(float ki)
-{
-  PID_SetKi(&pid, ki);
-  env->TECConf.I = ki;
-}
 
-void Top_SetPidKd(float kd)
+void Top_SetErrorCode(int16_t errCode)
 {
-  PID_SetKd(&pid, kd);
-  env->TECConf.D = kd;
-}
-
-void Top_SetPidSamplingInterval(uint16_t ms)
-{
-  PID_SetSamplingInterval(&pid, ms);
-  env->TECConf.SamplingIntervalMs = ms;
+  usRegHoldingBuf[REG_HOLDING_POS_ERR_CODE] = (uint16_t)errCode;
 }
 

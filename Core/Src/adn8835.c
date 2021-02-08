@@ -10,12 +10,13 @@
 
 extern osSemaphoreId semADBusyHandle;
 
-static float ConvertNTC2Celsius(ADN8835_TypeDef* adn8835, float Ohm)
+static float ConvertNTC2Celsius(float Ohm, float coA, float coB, float coC)
 {
     // refers to https://www.thermistor.com/calculators?r=sheccr
     
     float ln_ohm = logf(Ohm);
-    float temp = 1 / (adn8835->NTCCoeff.CoA + adn8835->NTCCoeff.CoB * ln_ohm + adn8835->NTCCoeff.CoC * pow(ln_ohm, 3)) - 273.15;
+    float temp = 1 / (coA + coB * ln_ohm + coC * pow(ln_ohm, 3)) - 273.15;
+    if(temp < -100 || temp > 200) temp = NAN;
     return temp;
 }
 
@@ -26,7 +27,7 @@ void ADN8835_Init(ADN8835_TypeDef* adn8835)
   adn8835->EnPin.Gpio                      = GPIOA;
   adn8835->EnPin.Pin                       = GPIO_PIN_5;
   adn8835->Analog.Handle                   = &hadc1;                   // ADC1 is used
-  adn8835->Analog.VrefADC                  = 3300;                     // 3.3v voltage is used as the ADC Vref
+  adn8835->Analog.VrefADC                  = 3264;                     // 3.3v voltage is used as the ADC Vref
   adn8835->Analog.VrefNTC                  = 2500;                     // 2.5v is used as the power supply of the NTC
   adn8835->Analog.RrefNTC                  = 10000;                    // 10K resistor is used as the reference of the NTC
   adn8835->Analog.ChannelNTC               = ADC_CHANNEL_0;            // Channel 0 is used to measure the TOSA temperature
@@ -39,10 +40,7 @@ void ADN8835_Init(ADN8835_TypeDef* adn8835)
   adn8835->PIDParam.LastTempCtrlLevel      = 0;
   adn8835->IsInitialized                   = 1;
     
-    
-    
-    ADN8835_Disable(adn8835);
-    ADN8835_SetControlLevel(adn8835, 0);
+  ADN8835_Disable(adn8835);
 }
 
 void ADN8835_Enable(ADN8835_TypeDef* adn8835)
@@ -50,12 +48,14 @@ void ADN8835_Enable(ADN8835_TypeDef* adn8835)
   // Ven > 2.1v makes the ADN8835 enabled
   HAL_GPIO_WritePin(adn8835->EnPin.Gpio, adn8835->EnPin.Pin, GPIO_PIN_SET);
   HAL_DAC_Start(&hdac, DAC_CHANNEL_1);
+  adn8835->IsAutoTuningStarted = 1;
 }
 
 void ADN8835_Disable(ADN8835_TypeDef* adn8835)
 {
   HAL_DAC_Stop(&hdac, DAC_CHANNEL_1);
   HAL_GPIO_WritePin(adn8835->EnPin.Gpio, adn8835->EnPin.Pin, GPIO_PIN_RESET);
+  adn8835->IsAutoTuningStarted = 0;
 }
 
 void ADN8835_SetTargetTemperture(ADN8835_TypeDef* adn8835, int value)
@@ -68,24 +68,22 @@ void ADN8835_SetMode(ADN8835_TypeDef* adn8835, ADN8835_Mode_TypeDef mode)
     adn8835->Mode = mode;
 }
 
-void ADN8835_SetControlLevel(ADN8835_TypeDef* adn8835, int level)
+void ADN8835_SetControlLevel(ADN8835_TypeDef* adn8835, float level, float vref)
 {
-    if(level < -1250)
-        level = -1250;
-    else if(level > 1250)
-        level = 1250;
-    
-    //int previousLev = adn8835->PIDParam.LastTempCtrlLevel;
-    int volt = 0;
+  // restrict the range of the level to -1250 ~ 1250
+  if(level < -1250)
+      level = -1250;
+  else if(level > 1250)
+      level = 1250;
 
-    volt = level + 1250;
-    //DAC7558_WriteData(DAC7558_3, DAC7558_CH_G, volt);
+  // convert to level to 0 ~ 2500 for the output of the DAC.
+  float volt = level + 1250.0f;
 
-    uint16_t dacHex = volt * 3300 / 4096;
-    HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, dacHex);
+  uint16_t dacHex = volt / vref * 4096.0f;
+  HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, dacHex);
 }
 
-float ADN8835_ReadTemp(ADN8835_TypeDef* adn8835)
+float ADN8835_ReadTemp(ADN8835_TypeDef* adn8835, float vrefAdc, float vrefNtc, float coA, float coB, float coC)
 {
     if(adn8835->IsInitialized)
     {
@@ -112,14 +110,14 @@ float ADN8835_ReadTemp(ADN8835_TypeDef* adn8835)
 
             adcHex /= ADC_AVERAGE_TIMES;
 
-            voltNTC = (float)(adcHex * adn8835->Analog.VrefADC) / 4096.0f;
+            voltNTC = (float)(adcHex * vrefAdc) / 4096.0f;
 						
 						// ohmNTC = voltNTC / 0.098; // 0.098 is the output value of the I-Source.
-            float curr = ((float)(adn8835->Analog.VrefNTC) - voltNTC) / (float)adn8835->Analog.RrefNTC;
+            float curr = ((float)(vrefNtc) - voltNTC) / (float)adn8835->Analog.RrefNTC;
             
 						ohmNTC = voltNTC / curr;
 
-            c =  ConvertNTC2Celsius(adn8835, ohmNTC);
+            c =  ConvertNTC2Celsius(ohmNTC, coA, coB, coC);
         }
         else
         {
@@ -137,14 +135,14 @@ float ADN8835_ReadTemp(ADN8835_TypeDef* adn8835)
     }
 }
 
-int ADN8835_ReadVTEC(ADN8835_TypeDef* adn8835)
+float ADN8835_ReadVTEC(ADN8835_TypeDef* adn8835, float vref)
 {
     if(adn8835->IsInitialized)
     {
         ADC_ChannelConfTypeDef sConfig;
         uint32_t adcHex = 0;
-        int volt = 0;
-        int vtec = 0;
+        float volt = 0;
+        float vtec = 0;
         
         if(osSemaphoreWait(semADBusyHandle, 200) == osOK)
         {
@@ -163,8 +161,8 @@ int ADN8835_ReadVTEC(ADN8835_TypeDef* adn8835)
             
             adcHex /= ADC_AVERAGE_TIMES;
             
-            volt = adcHex * adn8835->Analog.VrefADC / 4096;
-            vtec = (volt - 1250) * 4;
+            volt = (float)adcHex * vref / 4096.0f;
+            vtec = (volt - 1250.0f) * 4.0f;
         }
         else
         {
@@ -182,14 +180,14 @@ int ADN8835_ReadVTEC(ADN8835_TypeDef* adn8835)
     }
 }
 
-int ADN8835_ReadITEC(ADN8835_TypeDef* adn8835)
+float ADN8835_ReadITEC(ADN8835_TypeDef* adn8835, float vref)
 {
     if(adn8835->IsInitialized)
     {
         ADC_ChannelConfTypeDef sConfig;
         uint32_t adcHex = 0;
-        int volt = 0;
-        int itec = 0;
+        float volt = 0;
+        float itec = 0;
         
         if(osSemaphoreWait(semADBusyHandle, 200) == osOK)
         {
@@ -209,8 +207,8 @@ int ADN8835_ReadITEC(ADN8835_TypeDef* adn8835)
             
             adcHex /= ADC_AVERAGE_TIMES;
             
-            volt = adcHex * adn8835->Analog.VrefADC / 4096;
-            itec = (volt - 1250) * 7 / 2;
+            volt = (float)adcHex * vref / 4096.0f;
+            itec = (volt - 1250.0f) * 7.0f / 2.0f;
         }
         else
         {
@@ -226,4 +224,24 @@ int ADN8835_ReadITEC(ADN8835_TypeDef* adn8835)
     {
         return ADN8835_INVALIED_VALUE;
     }
+}
+
+
+static float errLast, errLastLast;
+
+float ADN8835_PidTune(ADN8835_TypeDef* adn8835, float measured, float sp, float kp, float ki, float kd)
+{
+  float err = sp - measured;
+  float increment = kp * (err - errLast) + ki * err + kd * (err - 2 * errLast + errLastLast);
+
+  errLastLast = errLast;
+  errLast = err;
+
+  return increment;
+}
+
+void ADN8835_PidReset(ADN8835_TypeDef* adn8835)
+{
+    errLast = 0;
+    errLastLast = 0;
 }

@@ -43,6 +43,11 @@
 			<locationURI>PARENT-1-PROJECT_LOC/Middlewares/Third_Party/modbus</locationURI>
 		</link>
 		<link>
+			<name>Application/gpio_based_i2c/gpio_based_i2c.c</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/Core/Src/gpio_based_i2c.c</locationURI>
+		</link>
+		<link>
 			<name>Application/modbus/mb_impl_coil.c</name>
 			<type>1</type>
 			<locationURI>PARENT-1-PROJECT_LOC/Core/Src/mb_impl_coil.c</locationURI>

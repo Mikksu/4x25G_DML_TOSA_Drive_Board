@@ -19,8 +19,12 @@
             "includePath": [
                 "${workspaceFolder}/**",
                 "C:\\Users\\Mikk\\STM32Cube\\Repository\\STM32Cube_FW_F4_V1.25.2\\Middlewares\\Third_Party\\FreeRTOS\\Source\\include\\",
-                "C:\\Keil_v5\\ARM\\ARMCLANG\\include\\",
-                "C:\\Users\\Mikk\\STM32Cube\\Repository\\STM32Cube_FW_F4_V1.25.2\\Middlewares\\Third_Party\\FreeRTOS\\Source\\portable\\GCC\\ARM_CM4_MPU\\"
+                "C:\\Users\\Mikk\\STM32Cube\\Repository\\STM32Cube_FW_F4_V1.25.2\\Middlewares\\Third_Party\\FreeRTOS\\Source\\portable\\GCC\\ARM_CM4_MPU\\",
+                "C:\\ST\\STM32CubeIDE_1.5.1\\STM32CubeIDE\\plugins\\com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.7-2018-q2-update.win32_1.5.0.202011040924\\tools\\arm-none-eabi\\include\\",
+                "D:\\My Projects\\Irixi\\006 4x25G DML TOSA\\Fanout Board\\Firmware\\4x25G_DML_TOSA_PowerSupply\\Middlewares\\Third_Party\\FreeRTOS\\Source\\include\\",
+                "C:\\ST\\STM32CubeIDE_1.5.1\\STM32CubeIDE\\plugins\\com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.7-2018-q2-update.win32_1.5.0.202011040924\\tools\\lib\\gcc\\arm-none-eabi\\7.3.1\\include\\",
+                "D:\\My Projects\\Irixi\\006 4x25G DML TOSA\\Fanout Board\\Firmware\\4x25G_DML_TOSA_PowerSupply\\Core\\Inc\\",
+                "D:\\My Projects\\Irixi\\006 4x25G DML TOSA\\Fanout Board\\Firmware\\4x25G_DML_TOSA_PowerSupply\\Drivers\\CMSIS\\RTOS\\Template\\"
             ],
             "defines": [
                 "_DEBUG",

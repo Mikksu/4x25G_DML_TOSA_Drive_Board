@@ -5,7 +5,15 @@
 #include <string.h>
 #include "ina226.h"
 #include "adn8835.h"
-#include "pidcontroller.h"
+
+#define REG_HOLDING_POS_DAC_OUTPUT      (63)
+#define REG_HOLDING_POS_ERR_CODE        (98)
+#define REG_HOLDING_POS_EXECUTE         (99)
+
+#define REG_INPUT_POS_RTTEMP            (44)
+#define REG_INPUT_POS_TARGETTEMP        (46)
+#define REG_INPUT_POS_TEC_INC           (48)
+#define REG_INPUT_POS_TEC_DAC           (50)
 
 /*
  * @brief         How many INA226s are there on the board.
@@ -25,6 +33,14 @@
 #define INA226_VCC3   (0x44 << 1)
 #define INA226_24V    (0x40 << 1)
 #define INA226_TEC    (0x41 << 1)
+
+/*
+ * @brief         The definition of the Error Code.
+ */
+#define ERR_NO                          (0)
+#define ERR_PID_PARAM                   (-10)         /*!< Invalid PID parameters             */
+#define ERR_PID_INVALID_RTTEMP          (-11)         /*!< Invalid real-time temperature read while PID tuning    */
+#define ERR_PID_INVALID_TARGET_TEMP     (-12)         /*!< Invalid target temperature    */
 
 typedef enum
 {
@@ -48,7 +64,15 @@ typedef struct
 
 typedef struct
 {
-  uint16_t                      Mode;
+  union
+  {
+    uint16_t                    Config;
+    struct
+    {
+      uint16_t                    Mode:1;             /*!< 0: Heater; 1: TEC                    */
+      uint16_t                    Polarity:1;         /*!< 0: Normal; 1:Switch the TEC+/TEC-    */
+    };
+  };
   float                         P;
   float                         I;
   float                         D;
@@ -57,7 +81,10 @@ typedef struct
   float                         NTCCoeffB;
   float                         NTCCoeffC;
   float                         NTCRefResistorOhm;
-
+  float                         NTCVref;
+  float                         ADCVref;
+  float                         TargetTemp;
+  float                         DacOutputMv;
 } TOP_TEC_Conf_TypeDef;
 
 typedef struct
@@ -67,17 +94,47 @@ typedef struct
 
 } Top_Env_TypeDef;
 
+
+typedef struct
+{
+  float                         Vcc;
+  float                         Vshunt;
+  float                         Current;
+  float                         Power;
+
+} Top_Vcc_Mon_TypeDef;
+
+typedef struct
+{
+  float                         Vtec;
+  float                         Itec;
+  float                         RtTemp;
+  float                         TargetTemp;
+  float                         PidInc;
+  float                         PidCtlLevel;
+  uint16_t                      TecMode;
+  uint16_t                      TecPolarity;
+
+} Top_Tec_Mon_TypeDef;
+
+typedef struct
+{
+  Top_Vcc_Mon_TypeDef           INA226Mon[MAX_INA226_CH];
+  Top_Tec_Mon_TypeDef           Tec;
+
+} Top_Monitoring_TypeDef;
+
 #pragma pack(pop)
 
 
 extern INA226_HandleTypeDef ina2261, ina2262, ina2263;
 extern ADN8835_TypeDef adn8835;
-extern PID_TypeDef pid;
 extern Top_Env_TypeDef *env;
 
 void Top_Init(void);
 void Top_LoadEnvFromFlash(void);
 void Top_SaveEnvToFlash(void);
+float Top_ReadRealtimeTemp(void);
 void Top_UpdateStatus(void);
 
 void Top_TurnOnLed(void);
@@ -96,11 +153,8 @@ void Top_SetTecNtcCoeffA(float coeff);
 void Top_SetTecNtcCoeffB(float coeff);
 void Top_SetTecNtcCoeffC(float coeff);
 void Top_SetTecMode(TOP_TecMode_TypeDef mode);
+void Top_TecTune(void);
 
-
-void Top_SetPidKp(float kp);
-void Top_SetPidKi(float ki);
-void Top_SetPidKd(float kd);
-void Top_SetPidSamplingInterval(uint16_t ms);
+void Top_SetErrorCode(int16_t errCode);
 
 #endif

@@ -31,8 +31,8 @@ typedef struct
 
 typedef struct
 {
-    int TargetTemperature;
-    int LastTempCtrlLevel;
+    float TargetTemperature;
+    float LastTempCtrlLevel;
 } ADN8835_PIDParam_TypeDef;
 
 typedef struct
@@ -67,10 +67,13 @@ void ADN8835_Enable(ADN8835_TypeDef* adn8835);
 void ADN8835_Disable(ADN8835_TypeDef* adn8835);
 void ADN8835_SetMode(ADN8835_TypeDef* adn8835, ADN8835_Mode_TypeDef mode);
 void ADN8835_SetTargetTemperture(ADN8835_TypeDef* adn8835, int value);
-void ADN8835_SetControlLevel(ADN8835_TypeDef* adn8835, int value);
-float ADN8835_ReadTemp(ADN8835_TypeDef* adn8835);
-int ADN8835_ReadVTEC(ADN8835_TypeDef* adn8835);
-int ADN8835_ReadITEC(ADN8835_TypeDef* adn8835);
+void ADN8835_SetControlLevel(ADN8835_TypeDef* adn8835, float level, float vref);
+float ADN8835_ReadTemp(ADN8835_TypeDef* adn8835, float vrefAdc, float vrefNtc, float coA, float coB, float coC);
+float ADN8835_ReadVTEC(ADN8835_TypeDef* adn8835, float vref);
+float ADN8835_ReadITEC(ADN8835_TypeDef* adn8835, float vref);
+
+float ADN8835_PidTune(ADN8835_TypeDef* adn8835, float measured, float sp, float kp, float ki, float kd);
+void ADN8835_PidReset(ADN8835_TypeDef* adn8835);
 
 
 

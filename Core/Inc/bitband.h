@@ -15,7 +15,7 @@
 #ifdef STM32F103xx
 #define IDR_OFFSET			8
 #define ODR_OFFSET			12
-#elif STM32F407xx
+#elif (STM32F407xx | STM32F405xx)
 #define IDR_OFFSET			16
 #define ODR_OFFSET			20
 #endif

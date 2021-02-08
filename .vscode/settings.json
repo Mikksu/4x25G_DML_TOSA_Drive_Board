@@ -1,5 +1,9 @@
 {
     "files.associations": {
-        "pidcontroller.h": "c"
+        "pidcontroller.h": "c",
+        "top.h": "c",
+        "mb_os_def.h": "c",
+        "string.h": "c",
+        "gpio_based_i2c.h": "c"
     }
 }

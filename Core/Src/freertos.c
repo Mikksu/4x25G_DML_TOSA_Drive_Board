@@ -61,6 +61,7 @@ osSemaphoreId semADBusyHandle;
 
 
 osThreadId modbusPollingTaskHandle;
+osThreadId pidTuningTaskHandle;
 
 /* USER CODE END Variables */
 osThreadId defaultTaskHandle;
@@ -70,6 +71,7 @@ osThreadId defaultTaskHandle;
 
 void StartModbusPollingTask(void const * argument);
 void StartTaskRegHolding(void const * argument);
+void StartPidTuningTask(void const * argument);
 
 /* USER CODE END FunctionPrototypes */
 
@@ -132,6 +134,9 @@ void MX_FREERTOS_Init(void) {
   osThreadDef(modbusPollingTask, StartModbusPollingTask, osPriorityNormal, 0, 256);
   modbusPollingTaskHandle = osThreadCreate(osThread(modbusPollingTask), NULL);
 
+  osThreadDef(pidTuningTask, StartPidTuningTask, osPriorityAboveNormal, 0, 256);
+  pidTuningTaskHandle = osThreadCreate(osThread(pidTuningTask), NULL);
+
   CreateMbCoilProcTask();
   CreateMbHoldingProcTask();
 
@@ -177,6 +182,23 @@ void StartModbusPollingTask(void const * argument)
   for(;;)
   {
     eMBPoll();
+  }
+}
+
+void StartPidTuningTask(void const * argument)
+{
+  #include "adn8835.h"
+
+  for(;;)
+  {
+    if(adn8835.IsAutoTuningStarted == 0)
+      osDelay(100);
+    else
+    {
+      Top_TecTune();
+      osDelay(env->TECConf.SamplingIntervalMs);
+    }
+    
   }
 }
 
