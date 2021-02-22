@@ -21,6 +21,7 @@ INA226_HandleTypeDef ina226[MAX_INA226_CH];
 ADN8835_TypeDef adn8835;
 Top_Env_TypeDef *env;
 Top_Monitoring_TypeDef *mon;
+Top_DutI2cOper_TypeDef *dutI2c;
 
 /*
  * @brief       Storage the realtime measurement values such as VCC, ICC.
@@ -63,6 +64,7 @@ void Top_Init(void)
   // map to registers of the modbus.
   env = (Top_Env_TypeDef*)usRegHoldingBuf;
   mon = (Top_Monitoring_TypeDef*)usRegInputBuf;
+  dutI2c = (Top_DutI2cOper_TypeDef*)&usRegHoldingBuf[REG_HOLDING_POS_DUT_IIC_OPER];
   init_monitoring_buff();
 
   // load the env from the flash.

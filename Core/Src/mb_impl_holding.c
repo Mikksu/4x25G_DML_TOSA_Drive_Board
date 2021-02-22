@@ -3,6 +3,7 @@
 #include "mbutils.h"
 #include "top.h"
 #include "dac.h"
+#include "gpio_based_i2c.h"
 
 #define REG_HOLDING_START 0
 #define REG_HOLDING_NREGS 100
@@ -20,6 +21,7 @@ osPoolDef(poolHoldingMsg, 5, MB_MSG_TypeDef);
 osPoolId poolHoldingMsgHandle;
 
 osThreadId regHoldingTaskHandle;
+osThreadId dutCommTaskhandle;
 
 void StartTaskRegHolding(void const * argument)
 {
@@ -62,18 +64,20 @@ void StartTaskRegHolding(void const * argument)
                 if (regVal == 17747) // Save Env to the flash
                 {
                   Top_SaveEnvToFlash();
+                  usRegHoldingBuf[REG_HOLDING_POS_EXECUTE] = 0;
                 }
                 else if (regVal == 17740) // Reload Env from the flash
                 {
                   Top_LoadEnvFromFlash();
+                  usRegHoldingBuf[REG_HOLDING_POS_EXECUTE] = 0;
                 }
                 else if (regVal == 18770) // Read data from device via I2C
                 {
-
+                  osSignalSet(dutCommTaskhandle, 0x1);
                 }
                 else if (regVal == 18775) // Write data to device via I2C
                 {
-
+                  osSignalSet(dutCommTaskhandle, 0x2);
                 }
             }
 
@@ -88,6 +92,41 @@ void StartTaskRegHolding(void const * argument)
 }
 
 
+void StartTaskDutComm(void const * argument)
+{
+  uint8_t i2cBuf[MAX_SIZE_DUT_I2C_BUF];
+  for(;;)
+  {
+    osEvent evt = osSignalWait(0x1 | 0x2, osWaitForever);
+    if(evt.status == osEventSignal)
+    {
+      // limit the length per read/write to 10 bytes.
+      if(dutI2c->RegLength > MAX_SIZE_DUT_I2C_BUF)
+        dutI2c->RegLength = MAX_SIZE_DUT_I2C_BUF;
+
+      if(evt.value.signals == 0x1) // I2C read
+      {
+        I2C_Master_MemRead((uint8_t)dutI2c->SlaveAddress, (uint8_t)dutI2c->RegStart, (uint8_t)dutI2c->RegLength, i2cBuf);
+        for(int i = 0; i < MAX_SIZE_DUT_I2C_BUF; i++)
+        {
+          dutI2c->Data[i] = (uint16_t)i2cBuf[i];
+        }
+      }
+      else if(evt.value.signals == 0x2) // I2C write
+      {
+        // convert the data written to the DUT to the byte array.
+        for(int i = 0; i < MAX_SIZE_DUT_I2C_BUF; i++)
+        {
+          i2cBuf[i] = (uint8_t)dutI2c->Data[i];
+        }
+        I2C_Master_MemWrite((uint8_t)dutI2c->SlaveAddress, (uint8_t)dutI2c->RegStart, (uint8_t)dutI2c->RegLength, i2cBuf);
+      }
+
+      usRegHoldingBuf[REG_HOLDING_POS_EXECUTE] = 0;
+    }
+  }
+}
+
 /*
  * Create the task to process the coil registers.
  */
@@ -95,6 +134,9 @@ void CreateMbHoldingProcTask(void)
 {
   osThreadDef(regHoldingTask, StartTaskRegHolding, osPriorityNormal, 0, 256);
   regHoldingTaskHandle = osThreadCreate(osThread(regHoldingTask), NULL);
+
+  osThreadDef(dutCommTask, StartTaskDutComm, osPriorityNormal, 0, 256);
+  dutCommTaskhandle = osThreadCreate(osThread(dutCommTask), NULL);
 }
 
 #endif

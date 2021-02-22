@@ -7,6 +7,7 @@
 #include "adn8835.h"
 
 #define REG_HOLDING_POS_DAC_OUTPUT      (63)
+#define REG_HOLDING_POS_DUT_IIC_OPER    (80)
 #define REG_HOLDING_POS_ERR_CODE        (98)
 #define REG_HOLDING_POS_EXECUTE         (99)
 
@@ -14,6 +15,12 @@
 #define REG_INPUT_POS_TARGETTEMP        (46)
 #define REG_INPUT_POS_TEC_INC           (48)
 #define REG_INPUT_POS_TEC_DAC           (50)
+
+
+/*
+ * @brief         The maximum size of the buffer for the DUT i2c operation
+ */
+#define MAX_SIZE_DUT_I2C_BUF            (10)
 
 /*
  * @brief         How many INA226s are there on the board.
@@ -94,6 +101,14 @@ typedef struct
 
 } Top_Env_TypeDef;
 
+typedef struct 
+{
+  uint16_t                      SlaveAddress;
+  uint16_t                      RegStart;
+  uint16_t                      RegLength;
+  uint16_t                      Data[MAX_SIZE_DUT_I2C_BUF];
+
+} Top_DutI2cOper_TypeDef;
 
 typedef struct
 {
@@ -130,6 +145,7 @@ typedef struct
 extern INA226_HandleTypeDef ina2261, ina2262, ina2263;
 extern ADN8835_TypeDef adn8835;
 extern Top_Env_TypeDef *env;
+extern Top_DutI2cOper_TypeDef *dutI2c;
 
 void Top_Init(void);
 void Top_LoadEnvFromFlash(void);
