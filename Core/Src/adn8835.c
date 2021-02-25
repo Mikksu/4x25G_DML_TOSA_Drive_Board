@@ -6,7 +6,7 @@
 #include "adn8835.h"
 
 
-#define ADC_AVERAGE_TIMES   10
+#define ADC_AVERAGE_TIMES   20
 
 extern osSemaphoreId semADBusyHandle;
 
@@ -15,8 +15,10 @@ static float ConvertNTC2Celsius(float Ohm, float coA, float coB, float coC)
     // refers to https://www.thermistor.com/calculators?r=sheccr
     
     float ln_ohm = logf(Ohm);
-    float temp = 1 / (coA + coB * ln_ohm + coC * pow(ln_ohm, 3)) - 273.15;
-    if(temp < -100 || temp > 200) temp = NAN;
+    float temp = 1 / (coA + coB * ln_ohm + coC * powf(ln_ohm, 3.0f)) - 273.15f;
+    if(temp < -100.0f || temp > 300.0f)
+      temp = NAN;
+
     return temp;
 }
 
@@ -30,9 +32,9 @@ void ADN8835_Init(ADN8835_TypeDef* adn8835)
   adn8835->Analog.VrefADC                  = 3264;                     // 3.3v voltage is used as the ADC Vref
   adn8835->Analog.VrefNTC                  = 2500;                     // 2.5v is used as the power supply of the NTC
   adn8835->Analog.RrefNTC                  = 10000;                    // 10K resistor is used as the reference of the NTC
-  adn8835->Analog.ChannelNTC               = ADC_CHANNEL_0;            // Channel 0 is used to measure the TOSA temperature
-  adn8835->Analog.ChannelVTEC              = ADC_CHANNEL_10;           // Channel 10 is used to measure the VTEC
-  adn8835->Analog.ChannelITEC              = ADC_CHANNEL_11;           // Channel 11 is used to measure the ITEC
+  adn8835->Analog.ADCChannelNTC            = ADC_CHANNEL_0;            // Channel 0 is used to measure the TOSA temperature
+  adn8835->Analog.ADCChannelVTEC           = ADC_CHANNEL_10;           // Channel 10 is used to measure the VTEC
+  adn8835->Analog.ADCChannelITEC           = ADC_CHANNEL_11;           // Channel 11 is used to measure the ITEC
   adn8835->NTCCoeff.CoA                    = 0.001125161025848;
   adn8835->NTCCoeff.CoB                    = 0.000234721098632;
   adn8835->NTCCoeff.CoC                    = 0.000000085877049;
@@ -95,7 +97,7 @@ float ADN8835_ReadTemp(ADN8835_TypeDef* adn8835, float vrefAdc, float vrefNtc, f
 
         if(osSemaphoreWait(semADBusyHandle, 200) == osOK)
         {
-            sConfig.Channel = adn8835->Analog.ChannelNTC;
+            sConfig.Channel = adn8835->Analog.ADCChannelNTC;
             sConfig.Rank = 1;
             sConfig.SamplingTime = ADC_SAMPLETIME_480CYCLES;
             HAL_ADC_ConfigChannel(adn8835->Analog.Handle, &sConfig);
@@ -110,12 +112,24 @@ float ADN8835_ReadTemp(ADN8835_TypeDef* adn8835, float vrefAdc, float vrefNtc, f
 
             adcHex /= ADC_AVERAGE_TIMES;
 
-            voltNTC = (float)(adcHex * vrefAdc) / 4096.0f;
+            voltNTC = (float)(adcHex * vrefAdc) / 4095.0f;
+
+            /* IMPORTANT
+             *
+             * In the case of Vref_ntc<Vref_adc, Vntc may be greater than Vref_ntc, which results in a negative
+             * current calculation value, and thus a negative resistance calculation value; therefore, the maximum
+             * value of Vntc needs to be constrained within the range of Vref_ntc.
+             */
+            if(voltNTC > vrefNtc)
+              voltNTC = vrefNtc;
 						
-						// ohmNTC = voltNTC / 0.098; // 0.098 is the output value of the I-Source.
-            float curr = ((float)(vrefNtc) - voltNTC) / (float)adn8835->Analog.RrefNTC;
+            float curr = (vrefNtc - voltNTC) / (float)adn8835->Analog.RrefNTC;
             
 						ohmNTC = voltNTC / curr;
+
+						adn8835->NtcMonitoring.Volt = voltNTC;
+						adn8835->NtcMonitoring.Curr = curr;
+						adn8835->NtcMonitoring.Ohm = ohmNTC;
 
             c =  ConvertNTC2Celsius(ohmNTC, coA, coB, coC);
         }
@@ -131,7 +145,7 @@ float ADN8835_ReadTemp(ADN8835_TypeDef* adn8835, float vrefAdc, float vrefNtc, f
     }
     else
     {
-        return ADN8835_INVALIED_VALUE;
+        return NAN;
     }
 }
 
@@ -146,7 +160,7 @@ float ADN8835_ReadVTEC(ADN8835_TypeDef* adn8835, float vref)
         
         if(osSemaphoreWait(semADBusyHandle, 200) == osOK)
         {
-            sConfig.Channel = adn8835->Analog.ChannelVTEC;
+            sConfig.Channel = adn8835->Analog.ADCChannelVTEC;
             sConfig.Rank = 1;
             sConfig.SamplingTime = ADC_SAMPLETIME_480CYCLES;
             HAL_ADC_ConfigChannel(adn8835->Analog.Handle, &sConfig);
@@ -192,7 +206,7 @@ float ADN8835_ReadITEC(ADN8835_TypeDef* adn8835, float vref)
         if(osSemaphoreWait(semADBusyHandle, 200) == osOK)
         {
 
-            sConfig.Channel = adn8835->Analog.ChannelITEC;
+            sConfig.Channel = adn8835->Analog.ADCChannelITEC;
             sConfig.Rank = 1;
             sConfig.SamplingTime = ADC_SAMPLETIME_480CYCLES;
             HAL_ADC_ConfigChannel(adn8835->Analog.Handle, &sConfig);

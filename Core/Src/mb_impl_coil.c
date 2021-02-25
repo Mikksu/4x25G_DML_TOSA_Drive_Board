@@ -7,7 +7,7 @@
 #define COIL_START 0
 #define COIL_NCOILS 100
 static USHORT usCoilStart = COIL_START;
-static UCHAR usCoilBuf[COIL_NCOILS] = {0x0};
+UCHAR usCoilBuf[COIL_NCOILS] = {0x0};
 #if S_COIL_NCOILS % 8
 UCHAR ucSCoilBuf[COIL_NCOILS / 8 + 1];
 #else
@@ -89,8 +89,34 @@ static void StartTaskRegCoil(void const * argument)
                 }
                 else if(regBitIndex == 4) // TOSA POWER SUPPLY ON/OFF
                 {
-                  if(bitValue == 0) Top_SetTecMode(TEC_MODE_HEATER);
-                  else Top_SetTecMode(TEC_MODE_TEC);
+                  if(bitValue == 0) // turn off the power supply
+                  {
+                    Top_TurnOffVcc3();
+                    Top_TurnOffVcc2();
+                    HAL_Delay(50);
+                    Top_TurnOffVcc1();
+
+                    Top_DutReset();
+                  }
+                  else
+                  {
+                    Top_TurnOnVcc1();
+                    HAL_Delay(50);
+                    Top_TurnOnVcc2();
+                    Top_TurnOnVcc3();
+                    HAL_Delay(10);
+                    Top_DutUnreset();
+                  }
+                }
+                else if(regBitIndex == 5) // TOSA Tx Disable
+                {
+                  if(bitValue == 0) Top_DutTxDisable();
+                  else Top_DutTxEnable();
+                }
+                else if(regBitIndex == 6) // TOSA Reset
+                {
+                  if(bitValue == 0) Top_DutReset();
+                  else Top_DutUnreset();
                 }
                 break; // end of ucCoilBuf[0]
             }

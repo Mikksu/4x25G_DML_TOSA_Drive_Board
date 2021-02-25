@@ -97,6 +97,12 @@ void Error_Handler(void);
 #define LED_GPIO_Port GPIOA
 #define USART1_DE_Pin GPIO_PIN_11
 #define USART1_DE_GPIO_Port GPIOA
+#define DUT_SDA_Pin GPIO_PIN_10
+#define DUT_SDA_GPIO_Port GPIOC
+#define DUT_SCL_Pin GPIO_PIN_11
+#define DUT_SCL_GPIO_Port GPIOC
+#define ALM_SYS_PWR_Pin GPIO_PIN_4
+#define ALM_SYS_PWR_GPIO_Port GPIOB
 /* USER CODE BEGIN Private defines */
 
 /* USER CODE END Private defines */

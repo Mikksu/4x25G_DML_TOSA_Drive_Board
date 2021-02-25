@@ -15,6 +15,7 @@ typedef struct
 {
     GPIO_TypeDef*       Gpio;
     unsigned int        Pin;
+
 } ADN8835_ENPin_TypeDef;
 
 typedef struct
@@ -23,9 +24,9 @@ typedef struct
     int                 VrefADC;
     int                 VrefNTC;
     int                 RrefNTC;
-    int                 ChannelNTC;
-    int                 ChannelVTEC;
-    int                 ChannelITEC;
+    int                 ADCChannelNTC;
+    int                 ADCChannelVTEC;
+    int                 ADCChannelITEC;
     
 } ADN8835_Analog_TypeDef;
 
@@ -33,6 +34,7 @@ typedef struct
 {
     float TargetTemperature;
     float LastTempCtrlLevel;
+
 } ADN8835_PIDParam_TypeDef;
 
 typedef struct
@@ -40,12 +42,22 @@ typedef struct
     float CoA;
     float CoB;
     float CoC;
+
 } NTCCoeff_TypeDef;
+
+typedef struct
+{
+  float   Volt;
+  float   Curr;
+  float   Ohm;
+
+} NTCMoni_TypeDef;
 
 typedef struct
 {
     int VLIM;
     int ILIM;
+
 } ADN8835_Compliance_TypeDef;
 
 /* The struct contains the parameters to operate the ADN8835 */
@@ -59,6 +71,7 @@ typedef struct
     NTCCoeff_TypeDef            NTCCoeff;               // Coefficients of NTC
     ADN8835_Compliance_TypeDef  Compliance;             // Compliance of voltage and current of TEC in percent from 0% - 100%
     ADN8835_PIDParam_TypeDef    PIDParam;               // The parameters used to control the temperature
+    NTCMoni_TypeDef             NtcMonitoring;
 
 } ADN8835_TypeDef;
 

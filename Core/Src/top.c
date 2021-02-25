@@ -20,12 +20,14 @@
 INA226_HandleTypeDef ina226[MAX_INA226_CH];
 ADN8835_TypeDef adn8835;
 Top_Env_TypeDef *env;
+Top_SwCtrl_Typedef *swCtrl;
 Top_Monitoring_TypeDef *mon;
 Top_DutI2cOper_TypeDef *dutI2c;
 
 /*
  * @brief       Storage the realtime measurement values such as VCC, ICC.
  */
+extern uint8_t  usCoilBuf[100];
 extern uint16_t usRegInputBuf[100];
 extern uint16_t usRegHoldingBuf[100];
 
@@ -46,7 +48,7 @@ static void udpate_ina226(int ch)
   power = INA226_ReadPowerReg(&ina226[ch]);
 
   mon->INA226Mon[ch].Vcc = vbus;
-  mon->INA226Mon[ch].Vshunt = vbus;
+  mon->INA226Mon[ch].Vshunt = vshunt;
   mon->INA226Mon[ch].Current = curr;
   mon->INA226Mon[ch].Power = power;
 
@@ -63,6 +65,7 @@ void Top_Init(void)
 {
   // map to registers of the modbus.
   env = (Top_Env_TypeDef*)usRegHoldingBuf;
+  swCtrl = (Top_SwCtrl_Typedef*)usCoilBuf;
   mon = (Top_Monitoring_TypeDef*)usRegInputBuf;
   dutI2c = (Top_DutI2cOper_TypeDef*)&usRegHoldingBuf[REG_HOLDING_POS_DUT_IIC_OPER];
   init_monitoring_buff();
@@ -173,6 +176,9 @@ void Top_UpdateStatus(void)
 float Top_ReadRealtimeTemp(void)
 {
   float temp = ADN8835_ReadTemp(&adn8835, env->TECConf.ADCVref, env->TECConf.NTCVref, env->TECConf.NTCCoeffA, env->TECConf.NTCCoeffB, env->TECConf.NTCCoeffC);
+  mon->Tec.Vntc = adn8835.NtcMonitoring.Volt;
+  mon->Tec.Intc = adn8835.NtcMonitoring.Curr;
+  mon->Tec.Rntc = adn8835.NtcMonitoring.Ohm;
   mon->Tec.RtTemp = temp;
   return temp;
 }
@@ -193,11 +199,11 @@ void Top_ChangeLedBrightness(int brightness)
   htim1.Instance->CCR1 = brightness;
 }
 
-
 void Top_TurnOnVcc1(void)
 {
   HAL_GPIO_WritePin(SW_VCC1_GPIO_Port, SW_VCC1_Pin, GPIO_PIN_SET);
   HAL_GPIO_WritePin(VCC1_STA_GPIO_Port, VCC1_STA_Pin, GPIO_PIN_RESET);
+  swCtrl->SwVcc1 = 1;
 }
 
 
@@ -205,12 +211,14 @@ void Top_TurnOffVcc1(void)
 {
   HAL_GPIO_WritePin(SW_VCC1_GPIO_Port, SW_VCC1_Pin, GPIO_PIN_RESET);
   HAL_GPIO_WritePin(VCC1_STA_GPIO_Port, VCC1_STA_Pin, GPIO_PIN_SET);
+  swCtrl->SwVcc1 = 0;
 }
 
 void Top_TurnOnVcc2(void)
 {
   HAL_GPIO_WritePin(SW_VCC2_GPIO_Port, SW_VCC2_Pin, GPIO_PIN_SET);
   HAL_GPIO_WritePin(VCC2_STA_GPIO_Port, VCC2_STA_Pin, GPIO_PIN_RESET);
+  swCtrl->SwVcc2 = 1;
 }
 
 
@@ -218,23 +226,27 @@ void Top_TurnOffVcc2(void)
 {
   HAL_GPIO_WritePin(SW_VCC2_GPIO_Port, SW_VCC2_Pin, GPIO_PIN_RESET);
   HAL_GPIO_WritePin(VCC2_STA_GPIO_Port, VCC2_STA_Pin, GPIO_PIN_SET);
+  swCtrl->SwVcc2 = 0;
 }
 
 void Top_TurnOnVcc3(void)
 {
   HAL_GPIO_WritePin(SW_VCC3_GPIO_Port, SW_VCC3_Pin, GPIO_PIN_SET);
   HAL_GPIO_WritePin(VCC3_STA_GPIO_Port, VCC3_STA_Pin, GPIO_PIN_RESET);
+  swCtrl->SwVcc3 = 1;
 }
 
 void Top_TurnOffVcc3(void)
 {
   HAL_GPIO_WritePin(SW_VCC3_GPIO_Port, SW_VCC3_Pin, GPIO_PIN_RESET);
   HAL_GPIO_WritePin(VCC3_STA_GPIO_Port, VCC3_STA_Pin, GPIO_PIN_SET);
+  swCtrl->SwVcc3 = 0;
 }
 
 void Top_TurnOnTec(void)
 {
   ADN8835_Enable(&adn8835);
+  swCtrl->TecEn = 1;
 }
 
 void Top_TurnOffTec(void)
@@ -244,6 +256,32 @@ void Top_TurnOffTec(void)
 
   // clear the values of the monitoring.
   init_monitoring_buff();
+
+  swCtrl->TecEn = 0;
+}
+
+void Top_DutTxDisable(void)
+{
+  HAL_GPIO_WritePin(DUT_nTXDIS_GPIO_Port, DUT_nTXDIS_Pin, GPIO_PIN_RESET);
+  swCtrl->DutTxDis = 0;
+}
+
+void Top_DutTxEnable(void)
+{
+  HAL_GPIO_WritePin(DUT_nTXDIS_GPIO_Port, DUT_nTXDIS_Pin, GPIO_PIN_SET);
+  swCtrl->DutTxDis = 1;
+}
+
+void Top_DutReset(void)
+{
+  HAL_GPIO_WritePin(DUT_nRST_GPIO_Port, DUT_nRST_Pin, GPIO_PIN_RESET);
+  swCtrl->DutRst = 0;
+}
+
+void Top_DutUnreset(void)
+{
+  HAL_GPIO_WritePin(DUT_nRST_GPIO_Port, DUT_nRST_Pin, GPIO_PIN_SET);
+  swCtrl->DutRst = 1;
 }
 
 void Top_SetTecMode(TOP_TecMode_TypeDef mode)
@@ -319,6 +357,7 @@ void Top_TecTune(void)
 
 void Top_SetErrorCode(int16_t errCode)
 {
-  usRegHoldingBuf[REG_HOLDING_POS_ERR_CODE] = (uint16_t)errCode;
+  mon->ErrorCode = errCode;
+  //usRegHoldingBuf[REG_HOLDING_POS_ERR_CODE] = (uint16_t)errCode;
 }
 

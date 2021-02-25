@@ -1,8 +1,8 @@
 #include "gpio_based_i2c.h"
 
-#define PIN_SCL         	(PCSet(10))
-#define PIN_SDA_OUT       (PASet(15))
-#define PIN_SDA_IN        (PAGet(15))
+#define PIN_SCL         	(PCSet(11))
+#define PIN_SDA_OUT       (PCSet(10))
+#define PIN_SDA_IN        (PCGet(10))
 
 static void delay()
 {
@@ -140,6 +140,7 @@ int I2C_Master_MemWrite(uint8_t slaveAddress, uint8_t regStart, uint8_t length, 
   return 0;
 
 _no_ack:
+  stop();
   return -1;
 }
 
@@ -164,5 +165,6 @@ int I2C_Master_MemRead(uint8_t slaveAddress, uint8_t regStart, uint8_t length, u
   return 0;
 
 _no_ack:
+  stop();
   return -1;
 }

@@ -48,6 +48,9 @@
 #define ERR_PID_PARAM                   (-10)         /*!< Invalid PID parameters             */
 #define ERR_PID_INVALID_RTTEMP          (-11)         /*!< Invalid real-time temperature read while PID tuning    */
 #define ERR_PID_INVALID_TARGET_TEMP     (-12)         /*!< Invalid target temperature    */
+#define ERR_DUT_I2C_NO_ACK              (-20)         /*!< No ack detected on the I2C bus to communicate with the DUT    */
+
+#define ERR_UNDEFINED                   (-999)        /*!< Undefined error    */
 
 typedef enum
 {
@@ -58,6 +61,25 @@ typedef enum
 
 #pragma pack(push)
 #pragma pack(1)
+
+typedef struct
+{
+  union
+  {
+    uint8_t                     SwCtl;
+    struct
+    {
+      uint8_t                   SwVcc1:1;
+      uint8_t                   SwVcc2:1;
+      uint8_t                   SwVcc3:1;
+      uint8_t                   TecEn:1;
+      uint8_t                   DutPs:1;
+      uint8_t                   DutTxDis:1;
+      uint8_t                   DutRst:1;
+    };
+  };
+
+} Top_SwCtrl_Typedef;
 
 typedef struct
 {
@@ -129,6 +151,9 @@ typedef struct
   float                         PidCtlLevel;
   uint16_t                      TecMode;
   uint16_t                      TecPolarity;
+  float                         Vntc;
+  float                         Intc;
+  float                         Rntc;
 
 } Top_Tec_Mon_TypeDef;
 
@@ -136,6 +161,7 @@ typedef struct
 {
   Top_Vcc_Mon_TypeDef           INA226Mon[MAX_INA226_CH];
   Top_Tec_Mon_TypeDef           Tec;
+  int16_t                       ErrorCode;
 
 } Top_Monitoring_TypeDef;
 
@@ -144,6 +170,7 @@ typedef struct
 
 extern INA226_HandleTypeDef ina2261, ina2262, ina2263;
 extern ADN8835_TypeDef adn8835;
+extern Top_SwCtrl_Typedef *swCtrl;
 extern Top_Env_TypeDef *env;
 extern Top_DutI2cOper_TypeDef *dutI2c;
 
@@ -162,6 +189,11 @@ void Top_TurnOnVcc2(void);
 void Top_TurnOffVcc2(void);
 void Top_TurnOnVcc3(void);
 void Top_TurnOffVcc3(void);
+
+void Top_DutTxEnable(void);
+void Top_DutTxDisable(void);
+void Top_DutUnreset(void);
+void Top_DutReset(void);
 
 void Top_TurnOnTec(void);
 void Top_TurnOffTec(void);

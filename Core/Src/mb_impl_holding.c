@@ -64,11 +64,13 @@ void StartTaskRegHolding(void const * argument)
                 if (regVal == 17747) // Save Env to the flash
                 {
                   Top_SaveEnvToFlash();
+                  Top_SetErrorCode(ERR_NO);
                   usRegHoldingBuf[REG_HOLDING_POS_EXECUTE] = 0;
                 }
                 else if (regVal == 17740) // Reload Env from the flash
                 {
                   Top_LoadEnvFromFlash();
+                  Top_SetErrorCode(ERR_NO);
                   usRegHoldingBuf[REG_HOLDING_POS_EXECUTE] = 0;
                 }
                 else if (regVal == 18770) // Read data from device via I2C
@@ -106,10 +108,23 @@ void StartTaskDutComm(void const * argument)
 
       if(evt.value.signals == 0x1) // I2C read
       {
-        I2C_Master_MemRead((uint8_t)dutI2c->SlaveAddress, (uint8_t)dutI2c->RegStart, (uint8_t)dutI2c->RegLength, i2cBuf);
-        for(int i = 0; i < MAX_SIZE_DUT_I2C_BUF; i++)
+        int ret = I2C_Master_MemRead((uint8_t)dutI2c->SlaveAddress, (uint8_t)dutI2c->RegStart, (uint8_t)dutI2c->RegLength, i2cBuf);
+        if(ret == 0)
         {
-          dutI2c->Data[i] = (uint16_t)i2cBuf[i];
+          for(int i = 0; i < MAX_SIZE_DUT_I2C_BUF; i++)
+          {
+            dutI2c->Data[i] = (uint16_t)i2cBuf[i];
+          }
+
+          Top_SetErrorCode(ERR_NO);
+        }
+        else if(ret == -1)
+        {
+          Top_SetErrorCode(ERR_DUT_I2C_NO_ACK);
+        }
+        else
+        {
+          Top_SetErrorCode(ERR_UNDEFINED);
         }
       }
       else if(evt.value.signals == 0x2) // I2C write
@@ -119,7 +134,19 @@ void StartTaskDutComm(void const * argument)
         {
           i2cBuf[i] = (uint8_t)dutI2c->Data[i];
         }
-        I2C_Master_MemWrite((uint8_t)dutI2c->SlaveAddress, (uint8_t)dutI2c->RegStart, (uint8_t)dutI2c->RegLength, i2cBuf);
+        int ret = I2C_Master_MemWrite((uint8_t)dutI2c->SlaveAddress, (uint8_t)dutI2c->RegStart, (uint8_t)dutI2c->RegLength, i2cBuf);
+        if(ret == 0)
+        {
+          Top_SetErrorCode(ERR_NO);
+        }
+        else if(ret == -1)
+        {
+          Top_SetErrorCode(ERR_DUT_I2C_NO_ACK);
+        }
+        else
+        {
+          Top_SetErrorCode(ERR_UNDEFINED);
+        }
       }
 
       usRegHoldingBuf[REG_HOLDING_POS_EXECUTE] = 0;
