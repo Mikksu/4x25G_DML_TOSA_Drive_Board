@@ -111,7 +111,7 @@ void StartTaskDutComm(void const * argument)
         int ret = I2C_Master_MemRead((uint8_t)dutI2c->SlaveAddress, (uint8_t)dutI2c->RegStart, (uint8_t)dutI2c->RegLength, i2cBuf);
         if(ret == 0)
         {
-          for(int i = 0; i < MAX_SIZE_DUT_I2C_BUF; i++)
+          for(int i = 0; i < dutI2c->RegLength; i++)
           {
             dutI2c->Data[i] = (uint16_t)i2cBuf[i];
           }

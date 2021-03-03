@@ -16,8 +16,8 @@
 #define IDR_OFFSET			8
 #define ODR_OFFSET			12
 #elif (STM32F407xx | STM32F405xx)
-#define IDR_OFFSET			16
-#define ODR_OFFSET			20
+#define IDR_OFFSET			0x10
+#define ODR_OFFSET			0x14
 #endif
 
 #define GPIOA_ODR_Addr    (GPIOA_BASE + ODR_OFFSET) 			/*!< GPIO Output Data Register Address: 0x40020014	*/

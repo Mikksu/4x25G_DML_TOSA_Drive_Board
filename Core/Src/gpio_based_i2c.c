@@ -1,63 +1,64 @@
 #include "gpio_based_i2c.h"
 
-#define PIN_SCL         	(PCSet(11))
-#define PIN_SDA_OUT       (PCSet(10))
+#define PIN_SCL(x)        (PCSet(11) = x)
+#define PIN_SDA(x)        (PCSet(10) = x)
 #define PIN_SDA_IN        (PCGet(10))
 
 static void delay()
 {
   // delay about 5us
-  volatile uint8_t i, j;
-  for (i = 0; i < 168; i++)
-    for(j = 0; j < 5; j++);
+  volatile uint8_t i;
+  //volatile uint8_t j;
+  for (i = 0; i < 20; i++);
+    //for(j = 0; j < 1; j++);
 
 }
 
 static void start(void)
 {
-	PIN_SCL = 1;
-	PIN_SDA_OUT = 1;
+	PIN_SCL (1);
+	PIN_SDA (1);
 	delay();
-	PIN_SDA_OUT = 0;
+	PIN_SDA (0);
 	delay();
-	PIN_SCL = 0;
+	PIN_SCL (0);
 	delay();	
 }
 
 static void stop(void)
 {
-	PIN_SCL = 0;
-	PIN_SDA_OUT = 0;
+	PIN_SCL (0);
+	PIN_SDA (0);
 	delay();
-	PIN_SCL = 1;
+	PIN_SCL (1);
 	delay();
-	PIN_SDA_OUT = 1;
+	PIN_SDA (1);
 	delay();
 }
 
 //产生应答信号
 static void send_ack(void)
 {
-	PIN_SCL = 0;
+	PIN_SCL (0);
 	delay();
-	PIN_SDA_OUT = 0;
+	PIN_SDA (0);
 	delay();
-	PIN_SCL = 1;
+	PIN_SCL (1);
 	delay();
-	PIN_SCL = 0;
+	PIN_SCL (0);
 	delay();
 }
 
 //产生非应答信号
 static void send_nack(void)
 {
-	PIN_SCL = 0;
+	PIN_SCL (0);
 	delay();
-	PIN_SDA_OUT = 1;
+	PIN_SDA (1);
 	delay();
-	PIN_SCL = 1;
+	PIN_SCL (1);
 	delay();
-	PIN_SCL = 0;
+	PIN_SCL (0);
 	delay();
 }
 
@@ -68,16 +69,16 @@ static void send_byte(uint8_t send_byte)
 	
 	for(i = 0 ; i < 8 ; i++)
 	{
-		PIN_SDA_OUT = (send_byte & 0x80) >> 7;
+		PIN_SDA ((send_byte & 0x80) >> 7);
 		delay();
-		PIN_SCL = 1;
+		PIN_SCL (1);
 		delay();
-		PIN_SCL = 0;
+		PIN_SCL (0);
 		if(i==7)
 		{
-			PIN_SDA_OUT = 1;	//发送最后一位之后，释放SDA总线，方便接收来自接收端的应答信号
+			PIN_SDA (1);	//发送最后一位之后，释放SDA总线，方便接收来自接收端的应答信号
 		}
-		delay();
+		//delay();
 		send_byte <<= 1;
 	}
 }
@@ -91,13 +92,14 @@ static uint8_t read_byte()
 	for(i = 0; i < 8; i++)
 	{
 		receive <<= 1;
-		PIN_SCL = 1;
+		PIN_SDA (1);
+		PIN_SCL (1);
 		delay();
 		if(PIN_SDA_IN == 1)
 		{
 			receive++;
 		}
-		PIN_SCL = 0;
+		PIN_SCL (0);
 		delay();
 	}
 	return receive;
@@ -107,9 +109,9 @@ static uint8_t wait_ack(void)
 {
 	uint8_t ack_flag = 0;
 	
-	PIN_SDA_OUT = 1;	//释放SDA总线
+	PIN_SDA (1);	//释放SDA总线
 	delay();
-	PIN_SCL = 1;
+	PIN_SCL (1);
 	delay();
 	if(PIN_SDA_IN == 1)
 	{	
@@ -119,7 +121,7 @@ static uint8_t wait_ack(void)
 	{
 		ack_flag = 0;	//应答
 	}
-	PIN_SCL = 0;
+	PIN_SCL (0);
 	delay();
 	return ack_flag;
 }
@@ -147,19 +149,21 @@ _no_ack:
 int I2C_Master_MemRead(uint8_t slaveAddress, uint8_t regStart, uint8_t length, uint8_t *data)
 {
   start();
-  send_byte(slaveAddress | 0x1);
+  send_byte(slaveAddress & 0xFE); // slave address with nW.
   if(wait_ack() == 1) goto _no_ack;
-  send_byte(regStart);
+  send_byte(regStart); // send the register index to read
   if(wait_ack() == 1) goto _no_ack;
-  start();
+  start(); // restart
+  send_byte(slaveAddress | 0x1); // slave address with R.
   if(wait_ack() == 1) goto _no_ack;
   for(int i = 0; i < length; i++)
   {
     *(data + i) = read_byte();
-    if(i < (length - 1))
-      send_ack();
-    else
+    if(i == (length - 1))
       send_nack();
+    else
+      send_ack();
+
   }
   stop();
   return 0;
