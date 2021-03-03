@@ -61,6 +61,36 @@ static void init_monitoring_buff(void)
   mon->Tec.PidCtlLevel = NAN;
 }
 
+static void env_validate(Top_Env_TypeDef* env)
+{
+  if(isnan(env->TECConf.P))
+      env->TECConf.P = 100;
+
+  if(isnan(env->TECConf.I))
+      env->TECConf.I = 20;
+
+  if(isnan(env->TECConf.D))
+      env->TECConf.D = 100;
+
+  if(isnan(env->TECConf.SamplingIntervalMs))
+      env->TECConf.SamplingIntervalMs = 50;
+
+  if(isnan(env->TECConf.NTCCoeffA))
+      env->TECConf.NTCCoeffA = 0.00112516f;
+
+  if(isnan(env->TECConf.NTCCoeffB))
+      env->TECConf.NTCCoeffB = 0.000234721f;
+
+  if(isnan(env->TECConf.NTCCoeffC))
+      env->TECConf.NTCCoeffC = 8.5877e-08;
+
+  if(isnan(env->TECConf.TempProteLow))
+    env->TECConf.TempProteLow = -10;
+
+  if(isnan(env->TECConf.TempProteHigh))
+      env->TECConf.TempProteHigh = 80;
+}
+
 void Top_Init(void)
 {
   // map to registers of the modbus.
@@ -69,6 +99,9 @@ void Top_Init(void)
   mon = (Top_Monitoring_TypeDef*)usRegInputBuf;
   dutI2c = (Top_DutI2cOper_TypeDef*)&usRegHoldingBuf[REG_HOLDING_POS_DUT_IIC_OPER];
   init_monitoring_buff();
+
+  // validate the env and load the default values if the item is NAN.
+  env_validate(env);
 
   // load the env from the flash.
   Top_LoadEnvFromFlash();
@@ -83,7 +116,6 @@ void Top_Init(void)
   INA226_SetVSHCT(pIna226, INA226_VSHCT_1100);
   INA226_SetCalibrationRegister(pIna226, 0.328f, 0.1f); // max current: 0.328A, shunt res: 0.1ohm
   INA226_SyncRegistors(pIna226);
-
 
   pIna226 = &ina226[1];
   INA226_Init(pIna226, &hi2c1, INA226_VCC2);
@@ -309,9 +341,18 @@ void Top_TecTune(void)
       Top_TurnOffTec();
       Top_SetErrorCode(ERR_PID_INVALID_RTTEMP);
     }
+    else if(rtTemp < env->TECConf.TempProteLow)
+    {
+      Top_TurnOffTec();
+      Top_SetErrorCode(ERR_PID_RTTEMP_TOO_LOW);
+    }
+    else if(rtTemp > env->TECConf.TempProteHigh)
+    {
+      Top_TurnOffTec();
+      Top_SetErrorCode(ERR_PID_RTTEMP_TOO_HIGH);
+    }
     else
     {
-
       if(isnan(env->TECConf.TargetTemp))
       {
         Top_TurnOffTec();

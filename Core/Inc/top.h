@@ -48,6 +48,8 @@
 #define ERR_PID_PARAM                   (-10)         /*!< Invalid PID parameters             */
 #define ERR_PID_INVALID_RTTEMP          (-11)         /*!< Invalid real-time temperature read while PID tuning    */
 #define ERR_PID_INVALID_TARGET_TEMP     (-12)         /*!< Invalid target temperature    */
+#define ERR_PID_RTTEMP_TOO_LOW          (-13)         /*!< The real time temp. is too low       */
+#define ERR_PID_RTTEMP_TOO_HIGH         (-14)         /*!< The real time temp. is too high       */
 #define ERR_DUT_I2C_NO_ACK              (-20)         /*!< No ack detected on the I2C bus to communicate with the DUT    */
 
 #define ERR_UNDEFINED                   (-999)        /*!< Undefined error    */
@@ -112,8 +114,11 @@ typedef struct
   float                         NTCRefResistorOhm;
   float                         NTCVref;
   float                         ADCVref;
+  float                         TempProteLow;
+  float                         TempProteHigh;
   float                         TargetTemp;
   float                         DacOutputMv;
+
 } TOP_TEC_Conf_TypeDef;
 
 typedef struct
