@@ -122,6 +122,10 @@ void StartTaskDutComm(void const * argument)
         {
           Top_SetErrorCode(ERR_DUT_I2C_NO_ACK);
         }
+        else if(ret == -2)
+        {
+          Top_SetErrorCode(ERR_DUT_I2C_BUS_BUSY);
+        }
         else
         {
           Top_SetErrorCode(ERR_UNDEFINED);

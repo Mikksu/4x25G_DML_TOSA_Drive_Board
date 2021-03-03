@@ -14,15 +14,23 @@ static void delay()
 
 }
 
-static void start(void)
+static int start(void)
 {
+  int busBusy = 0;
+
 	PIN_SCL (1);
 	PIN_SDA (1);
 	delay();
+
+	if (PIN_SDA_IN == 0)
+	  busBusy = -1;
+
 	PIN_SDA (0);
 	delay();
 	PIN_SCL (0);
 	delay();	
+
+	return busBusy;
 }
 
 static void stop(void)
@@ -128,7 +136,7 @@ static uint8_t wait_ack(void)
 
 int I2C_Master_MemWrite(uint8_t slaveAddress, uint8_t regStart, uint8_t length, uint8_t *data)
 {
-  start();
+  if(start() == -1) goto _bus_busy;
   send_byte(slaveAddress & 0xFE);
   if(wait_ack() == 1) goto _no_ack;
   send_byte(regStart);
@@ -144,16 +152,20 @@ int I2C_Master_MemWrite(uint8_t slaveAddress, uint8_t regStart, uint8_t length, 
 _no_ack:
   stop();
   return -1;
+
+_bus_busy:
+  stop();
+  return -2;
 }
 
 int I2C_Master_MemRead(uint8_t slaveAddress, uint8_t regStart, uint8_t length, uint8_t *data)
 {
-  start();
+  if(start() == -1) goto _bus_busy;
   send_byte(slaveAddress & 0xFE); // slave address with nW.
   if(wait_ack() == 1) goto _no_ack;
   send_byte(regStart); // send the register index to read
   if(wait_ack() == 1) goto _no_ack;
-  start(); // restart
+  if(start() == -1) goto _bus_busy; // restart
   send_byte(slaveAddress | 0x1); // slave address with R.
   if(wait_ack() == 1) goto _no_ack;
   for(int i = 0; i < length; i++)
@@ -171,4 +183,8 @@ int I2C_Master_MemRead(uint8_t slaveAddress, uint8_t regStart, uint8_t length, u
 _no_ack:
   stop();
   return -1;
+
+_bus_busy:
+  stop();
+  return -2;
 }

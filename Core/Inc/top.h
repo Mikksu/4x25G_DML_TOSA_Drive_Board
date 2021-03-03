@@ -51,6 +51,7 @@
 #define ERR_PID_RTTEMP_TOO_LOW          (-13)         /*!< The real time temp. is too low       */
 #define ERR_PID_RTTEMP_TOO_HIGH         (-14)         /*!< The real time temp. is too high       */
 #define ERR_DUT_I2C_NO_ACK              (-20)         /*!< No ack detected on the I2C bus to communicate with the DUT    */
+#define ERR_DUT_I2C_BUS_BUSY            (-21)         /*!< The SDA line can not be pull to high while starting the DUT i2c bus        */
 
 #define ERR_UNDEFINED                   (-999)        /*!< Undefined error    */
 
