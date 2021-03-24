@@ -100,11 +100,11 @@ void Top_Init(void)
   dutI2c = (Top_DutI2cOper_TypeDef*)&usRegHoldingBuf[REG_HOLDING_POS_DUT_IIC_OPER];
   init_monitoring_buff();
 
-  // validate the env and load the default values if the item is NAN.
-  env_validate(env);
-
   // load the env from the flash.
   Top_LoadEnvFromFlash();
+
+  // validate the env and load the default values if the item is NAN.
+  env_validate(env);
 
   INA226_HandleTypeDef* pIna226;
 
