@@ -209,6 +209,7 @@ void Top_SetTecNtcCoeffB(float coeff);
 void Top_SetTecNtcCoeffC(float coeff);
 void Top_SetTecMode(TOP_TecMode_TypeDef mode);
 void Top_TecSetDacVolt(float volt);
+void Top_SetTecControlLevel(float level);
 void Top_TecTune(void);
 
 void Top_SetErrorCode(int16_t errCode);

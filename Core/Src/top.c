@@ -334,6 +334,49 @@ void Top_SetTecMode(TOP_TecMode_TypeDef mode)
   }
 }
 
+void Top_SetTecControlLevel(float level)
+{
+
+  float ctrlLev = 0.0f;
+
+  /* NOTE
+   * For the Jupiter TOSA, >1250mV makes it cooller, <1250mV makes it hotter, so the inc should be plused to the controller level.
+   * If you want the controller direction reversed, simply change the plus to minus.
+   */
+  // invert the TEC+/- polarity according to the configuration.
+  int invertPolarity = 1;
+  if(env->TECConf.Polarity == 1)
+   invertPolarity = -1;
+
+  ctrlLev = level;
+
+  switch(env->TECConf.Mode)
+  {
+    case ADN8835_HEATER_MODE:
+      if(ctrlLev < 0)
+        ctrlLev = 0;
+      else if(ctrlLev > 1250.0f)
+        ctrlLev = 1250.0f;
+      break;
+
+    case ADN8835_TEC_MODE:
+      if(ctrlLev > 1250.0f)
+        ctrlLev = 1250.0f;
+      else if(ctrlLev < -1250.0f)
+        ctrlLev = -1250.0f;
+      break;
+
+    default:
+      ctrlLev = 0.0f;
+      break;
+  }
+
+  adn8835.PIDParam.LastTempCtrlLevel = ctrlLev;
+  ctrlLev *= invertPolarity;
+  mon->Tec.PidCtlLevel = ctrlLev; // the TEC control level in the monitor contains the polarity flag.
+  ADN8835_SetControlLevel(&adn8835, ctrlLev, env->TECConf.ADCVref);
+}
+
 void Top_TecSetDacVolt(float volt)
 {
   // THE METHOD IS ONLY AVAILABLE WHEN THE ManualControl bit IS SET TO TRUE.
@@ -346,15 +389,14 @@ void Top_TecSetDacVolt(float volt)
       volt = 2500;
 
     float ctrlLev = volt - 1250;
-    mon->Tec.PidCtlLevel = ctrlLev;
-    ADN8835_SetControlLevel(&adn8835, ctrlLev, env->TECConf.ADCVref);
+
+    Top_SetTecControlLevel(ctrlLev);
   }
 }
 
 void Top_TecTune(void)
 {
     float rtTemp = Top_ReadRealtimeTemp();
-    float tCtrlLev = 0.0f;
 
     // present the TEC configuration flags.
     mon->Tec.TecMode = env->TECConf.Mode;
@@ -401,47 +443,13 @@ void Top_TecTune(void)
         {
           // start to control the temperature.
           float inc = ADN8835_PidTune(&adn8835, rtTemp, env->TECConf.TargetTemp, env->TECConf.P, env->TECConf.I, env->TECConf.D);
+          float ctrlLevel = adn8835.PIDParam.LastTempCtrlLevel;
+          ctrlLevel += inc;
+
+          Top_SetTecControlLevel(ctrlLevel);
+
           mon->Tec.PidInc = inc;
           mon->Tec.TargetTemp = env->TECConf.TargetTemp;
-
-          /* NOTE
-            * For the Jupiter TOSA, >1250mV makes it cooller, <1250mV makes it hotter, so the inc should be plused to the controller level.
-            * If you want the controller direction reversed, simply change the plus to minus.
-            */
-          // invert the TEC+/- polarity according to the configuration.
-          int invertPolarity = 1;
-          if(env->TECConf.Polarity == 1)
-            invertPolarity = -1;
-
-          float ctrlLevel = adn8835.PIDParam.LastTempCtrlLevel * invertPolarity;
-          ctrlLevel += inc;
-          ctrlLevel *= invertPolarity;
-
-
-          switch(env->TECConf.Mode)
-          {
-            case ADN8835_HEATER_MODE:
-              tCtrlLev = fabsf(ctrlLevel);
-              if(tCtrlLev < 0)
-                tCtrlLev = 0;
-              ctrlLevel = tCtrlLev * invertPolarity;
-              break;
-
-            case ADN8835_TEC_MODE:
-              if(ctrlLevel > 1250.0f)
-                  ctrlLevel = 1250.0f;
-              else if(ctrlLevel < -1250.0f)
-                  ctrlLevel = -1250.0f;
-              break;
-
-            default:
-              ctrlLevel = 0.0f;
-              break;
-          }
-
-          ADN8835_SetControlLevel(&adn8835, ctrlLevel, env->TECConf.ADCVref);
-          adn8835.PIDParam.LastTempCtrlLevel = ctrlLevel;
-          mon->Tec.PidCtlLevel = ctrlLevel;
 
         }
       }

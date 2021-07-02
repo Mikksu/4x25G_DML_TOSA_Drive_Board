@@ -51,7 +51,7 @@ void StartTaskRegHolding(void const * argument)
             {
 
               case REG_HOLDING_POS_DAC_OUTPUT:
-                Top_TecSetDacVolt(env->TECConf.DacOutputMv);
+                //Top_TecSetDacVolt(env->TECConf.DacOutputMv);
                 break;
 
               case REG_HOLDING_POS_EXECUTE:  // Env Operation
