@@ -89,6 +89,8 @@ static void env_validate(Top_Env_TypeDef* env)
 
   if(isnan(env->TECConf.TempProteHigh))
       env->TECConf.TempProteHigh = 80;
+
+  env->TECConf.ManualControl = 0;
 }
 
 void Top_Init(void)
@@ -332,65 +334,116 @@ void Top_SetTecMode(TOP_TecMode_TypeDef mode)
   }
 }
 
+void Top_TecSetDacVolt(float volt)
+{
+  // THE METHOD IS ONLY AVAILABLE WHEN THE ManualControl bit IS SET TO TRUE.
+  if(env->TECConf.ManualControl)
+  {
+    // restrict the ADN8835 TEC_SET to 0mV ~ 2500mV.
+    if(isnan(volt) || volt < 0)
+      volt = 0;
+    else if(volt > 2500)
+      volt = 2500;
+
+    float ctrlLev = volt - 1250;
+    mon->Tec.PidCtlLevel = ctrlLev;
+    ADN8835_SetControlLevel(&adn8835, ctrlLev, env->TECConf.ADCVref);
+  }
+}
+
 void Top_TecTune(void)
 {
     float rtTemp = Top_ReadRealtimeTemp();
-    if(isnan(rtTemp))
-    {
-      // if we don't get the correct temperature, stop tuning.
-      Top_TurnOffTec();
-      Top_SetErrorCode(ERR_PID_INVALID_RTTEMP);
-    }
-    else if(rtTemp < env->TECConf.TempProteLow)
+    float tCtrlLev = 0.0f;
+
+    // present the TEC configuration flags.
+    mon->Tec.TecMode = env->TECConf.Mode;
+    mon->Tec.TecPolarity = env->TECConf.Polarity;
+
+    if(rtTemp < env->TECConf.TempProteLow)  // Rt. is too low, turn off the controller.
     {
       Top_TurnOffTec();
       Top_SetErrorCode(ERR_PID_RTTEMP_TOO_LOW);
     }
-    else if(rtTemp > env->TECConf.TempProteHigh)
+    else if(rtTemp > env->TECConf.TempProteHigh)  // Rt. is too high, turn off the controller.
     {
       Top_TurnOffTec();
       Top_SetErrorCode(ERR_PID_RTTEMP_TOO_HIGH);
     }
     else
     {
-      if(isnan(env->TECConf.TargetTemp))
+      if(env->TECConf.ManualControl)
       {
-        Top_TurnOffTec();
-        Top_SetErrorCode(ERR_PID_INVALID_TARGET_TEMP);
+        /**
+         * Manually control the TEC
+         **/
+
+        Top_TecSetDacVolt(env->TECConf.DacOutputMv);
       }
       else
       {
-        mon->Tec.TecMode = env->TECConf.Mode;
-        mon->Tec.TecPolarity = env->TECConf.Polarity;
+        /**
+         * Automatically tuning the TEC
+         **/
 
-        // start to control the temperature.
-        float inc = ADN8835_PidTune(&adn8835, rtTemp, env->TECConf.TargetTemp, env->TECConf.P, env->TECConf.I, env->TECConf.D);
-        mon->Tec.PidInc = inc;
-        mon->Tec.TargetTemp = env->TECConf.TargetTemp;
+        if(isnan(rtTemp))
+        {
+          // if we don't get the correct temperature, stop tuning.
+          Top_TurnOffTec();
+          Top_SetErrorCode(ERR_PID_INVALID_RTTEMP);
+        }
+        else if(isnan(env->TECConf.TargetTemp))
+        {
+          Top_TurnOffTec();
+          Top_SetErrorCode(ERR_PID_INVALID_TARGET_TEMP);
+        }
+        else
+        {
+          // start to control the temperature.
+          float inc = ADN8835_PidTune(&adn8835, rtTemp, env->TECConf.TargetTemp, env->TECConf.P, env->TECConf.I, env->TECConf.D);
+          mon->Tec.PidInc = inc;
+          mon->Tec.TargetTemp = env->TECConf.TargetTemp;
 
-        /* NOTE
-          * For the Jupiter TOSA, >1250mV makes it cooller, <1250mV makes it hotter, so the inc should be plused to the controller level.
-          * If you want the controller direction reversed, simply change the plus to minus.
-          */
-        // invert the TEC+/- polarity according to the configuration.
-        int invertPolarity = 1;
-        if(env->TECConf.Polarity == 1)
-          invertPolarity = -1;
+          /* NOTE
+            * For the Jupiter TOSA, >1250mV makes it cooller, <1250mV makes it hotter, so the inc should be plused to the controller level.
+            * If you want the controller direction reversed, simply change the plus to minus.
+            */
+          // invert the TEC+/- polarity according to the configuration.
+          int invertPolarity = 1;
+          if(env->TECConf.Polarity == 1)
+            invertPolarity = -1;
 
-        inc *= invertPolarity;
+          float ctrlLevel = adn8835.PIDParam.LastTempCtrlLevel * invertPolarity;
+          ctrlLevel += inc;
+          ctrlLevel *= invertPolarity;
 
-        float ctrlLevel = adn8835.PIDParam.LastTempCtrlLevel - inc;
 
-        //TODO The mode should be checked, the tuning logic of the Heater and the TEC is different.
-        if(ctrlLevel > 1250.0f)
-            ctrlLevel = 1250.0f;
-        else if(ctrlLevel < -1250.0f)
-            ctrlLevel = -1250.0f;
+          switch(env->TECConf.Mode)
+          {
+            case ADN8835_HEATER_MODE:
+              tCtrlLev = fabsf(ctrlLevel);
+              if(tCtrlLev < 0)
+                tCtrlLev = 0;
+              ctrlLevel = tCtrlLev * invertPolarity;
+              break;
 
-        mon->Tec.PidCtlLevel = ctrlLevel;
+            case ADN8835_TEC_MODE:
+              if(ctrlLevel > 1250.0f)
+                  ctrlLevel = 1250.0f;
+              else if(ctrlLevel < -1250.0f)
+                  ctrlLevel = -1250.0f;
+              break;
 
-        ADN8835_SetControlLevel(&adn8835, ctrlLevel, env->TECConf.ADCVref);
-        adn8835.PIDParam.LastTempCtrlLevel = ctrlLevel;
+            default:
+              ctrlLevel = 0.0f;
+              break;
+          }
+
+          ADN8835_SetControlLevel(&adn8835, ctrlLevel, env->TECConf.ADCVref);
+          adn8835.PIDParam.LastTempCtrlLevel = ctrlLevel;
+          mon->Tec.PidCtlLevel = ctrlLevel;
+
+        }
       }
     }
 }

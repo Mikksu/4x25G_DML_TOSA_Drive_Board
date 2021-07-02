@@ -51,10 +51,7 @@ void StartTaskRegHolding(void const * argument)
             {
 
               case REG_HOLDING_POS_DAC_OUTPUT:
-                ;
-                uint16_t dacHex = (uint16_t)(env->TECConf.DacOutputMv / env->TECConf.ADCVref * 4096.0f);
-                HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, dacHex);
-                HAL_DAC_Start(&hdac, DAC_CHANNEL_1);
+                Top_TecSetDacVolt(env->TECConf.DacOutputMv);
                 break;
 
               case REG_HOLDING_POS_EXECUTE:  // Env Operation

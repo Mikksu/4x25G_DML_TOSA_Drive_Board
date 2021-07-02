@@ -6,7 +6,7 @@
 #include "ina226.h"
 #include "adn8835.h"
 
-#define REG_HOLDING_POS_DAC_OUTPUT      (63)
+#define REG_HOLDING_POS_DAC_OUTPUT      (67)
 #define REG_HOLDING_POS_DUT_IIC_OPER    (80)
 #define REG_HOLDING_POS_ERR_CODE        (98)
 #define REG_HOLDING_POS_EXECUTE         (99)
@@ -103,6 +103,7 @@ typedef struct
     {
       uint16_t                    Mode:1;             /*!< 0: Heater; 1: TEC                    */
       uint16_t                    Polarity:1;         /*!< 0: Normal; 1:Switch the TEC+/TEC-    */
+      uint16_t                    ManualControl:1;    /*!< 0: Manual Control; 1: Auto Control   */
     };
   };
   float                         P;
@@ -207,6 +208,7 @@ void Top_SetTecNtcCoeffA(float coeff);
 void Top_SetTecNtcCoeffB(float coeff);
 void Top_SetTecNtcCoeffC(float coeff);
 void Top_SetTecMode(TOP_TecMode_TypeDef mode);
+void Top_TecSetDacVolt(float volt);
 void Top_TecTune(void);
 
 void Top_SetErrorCode(int16_t errCode);
