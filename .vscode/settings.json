@@ -4,6 +4,10 @@
         "top.h": "c",
         "mb_os_def.h": "c",
         "string.h": "c",
-        "gpio_based_i2c.h": "c"
-    }
+        "gpio_based_i2c.h": "c",
+        "ina226.h": "c"
+    },
+    "stm32-for-vscode.openOCDPath": false,
+    "stm32-for-vscode.makePath": false,
+    "stm32-for-vscode.armToolchainPath": false
 }

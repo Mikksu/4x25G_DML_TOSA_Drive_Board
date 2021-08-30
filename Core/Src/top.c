@@ -59,6 +59,12 @@ static void init_monitoring_buff(void)
   mon->Tec.TargetTemp = NAN;
   mon->Tec.PidInc = NAN;
   mon->Tec.PidCtlLevel = NAN;
+	mon->I2CCommCounter = 0;
+
+	// define the version
+	mon->Version.Major = VER_MAJOR;
+	mon->Version.Minor = VER_MINOR;
+	mon->Version.Rev = VER_REV;
 }
 
 static void env_validate(Top_Env_TypeDef* env)
@@ -461,5 +467,11 @@ void Top_SetErrorCode(int16_t errCode)
 {
   mon->ErrorCode = errCode;
   //usRegHoldingBuf[REG_HOLDING_POS_ERR_CODE] = (uint16_t)errCode;
+}
+
+void Top_AddI2CCommCounter(void)
+{
+	mon->I2CCommCounter++;
+
 }
 

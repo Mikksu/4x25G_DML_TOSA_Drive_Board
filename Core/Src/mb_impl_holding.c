@@ -150,7 +150,13 @@ void StartTaskDutComm(void const * argument)
         }
       }
 
+			Top_AddI2CCommCounter();
+
+
+			// reset the 'Operation Code'.
       usRegHoldingBuf[REG_HOLDING_POS_EXECUTE] = 0;
+
+			
     }
   }
 }

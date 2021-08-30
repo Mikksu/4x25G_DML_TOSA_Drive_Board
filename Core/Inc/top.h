@@ -6,6 +6,10 @@
 #include "ina226.h"
 #include "adn8835.h"
 
+#define	VER_MAJOR												(1)
+#define VER_MINOR												(0)
+#define	VER_REV													(1)
+
 #define REG_HOLDING_POS_DAC_OUTPUT      (67)
 #define REG_HOLDING_POS_DUT_IIC_OPER    (80)
 #define REG_HOLDING_POS_ERR_CODE        (98)
@@ -164,11 +168,23 @@ typedef struct
 
 } Top_Tec_Mon_TypeDef;
 
+
+typedef struct
+{
+	uint16_t											Major;
+	uint16_t											Minor;
+	uint16_t											Rev;
+	
+} Top_Version_TypeDef;
+
+
 typedef struct
 {
   Top_Vcc_Mon_TypeDef           INA226Mon[MAX_INA226_CH];
   Top_Tec_Mon_TypeDef           Tec;
   int16_t                       ErrorCode;
+	uint16_t											I2CCommCounter;
+	Top_Version_TypeDef						Version;
 
 } Top_Monitoring_TypeDef;
 
@@ -213,5 +229,7 @@ void Top_SetTecControlLevel(float level);
 void Top_TecTune(void);
 
 void Top_SetErrorCode(int16_t errCode);
+void Top_AddI2CCommCounter(void);
+
 
 #endif
