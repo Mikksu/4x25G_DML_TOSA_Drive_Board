@@ -155,16 +155,28 @@ void StartDefaultTask(void const * argument)
 {
   /* USER CODE BEGIN StartDefaultTask */
 
+  int i = 0;
+
   // initialize the board.
   Top_Init();
 	
   /* Infinite loop */
   for(;;)
   {
-    Top_TurnOnLed();
-    osDelay(10);
-		
-    Top_TurnOffLed();
+    if(i % 20 == 0)
+    {
+      Top_TurnOnLed();
+      osDelay(10);
+    }
+
+    if(i % 30 == 0)
+    {
+      Top_TurnOffLed();
+      i = 0;
+    }
+
+    i++;
+
     osDelay(50);
 
     Top_UpdateStatus();

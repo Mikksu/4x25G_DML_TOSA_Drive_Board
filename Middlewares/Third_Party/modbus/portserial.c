@@ -31,6 +31,23 @@ static void prvvUARTTxReadyISR( void );
 static void prvvUARTRxISR( void );
 */
 
+/*
+ * @brief   The pointer to the usart which is used by the Modbus.
+ */
+UART_HandleTypeDef   *huart               = NULL;
+
+/*
+ * @brief   The Gpio which is used to control the DE pin of the RS485.
+ */
+GPIO_TypeDef         *rs485DeGpio         = NULL;
+uint16_t             rs485DePin           = 0;
+
+/*
+ * @brief   RS485 Rx state activation level.
+ *          When the RS485 ED pin level is set to this value, it's in the receiving state.
+ */
+GPIO_PinState       rs485DeActivateLevel  = GPIO_PIN_RESET;
+
 
 /* ----------------------- Start implementation -----------------------------*/
 void
@@ -40,32 +57,86 @@ vMBPortSerialEnable( BOOL xRxEnable, BOOL xTxEnable )
     * transmitter empty interrupts.
     */
 
+  // disable the USART to avoid receiving data.
+  __HAL_UART_DISABLE(huart);
+
+  // switch the RS485 to RX state.
+  // the rs485 should be always in RX state.
+  if(rs485DeGpio != NULL)
+    HAL_GPIO_WritePin(rs485DeGpio, rs485DePin, rs485DeActivateLevel);
+
   if (xRxEnable == TRUE)
   {
-    __HAL_UART_ENABLE_IT(&huart1, UART_IT_RXNE);
-    HAL_GPIO_WritePin(USART1_DE_GPIO_Port, USART1_DE_Pin, GPIO_PIN_RESET);
+    // enable the RX interrupt.
+    huart->Instance->CR1 |= UART_MODE_RX;
+    __HAL_UART_ENABLE_IT(huart, UART_IT_RXNE);
   }
   else if (xRxEnable == FALSE)
   {
-    __HAL_UART_DISABLE_IT(&huart1, UART_IT_RXNE);
-    HAL_GPIO_WritePin(USART1_DE_GPIO_Port, USART1_DE_Pin, GPIO_PIN_SET);
+    // disable the RX interrupt.
+    huart->Instance->CR1 &= (~UART_MODE_RX);
+    __HAL_UART_DISABLE_IT(huart, UART_IT_RXNE);
   }
 
   //发送使能
   if (xTxEnable == TRUE)
-    __HAL_UART_ENABLE_IT(&huart1, UART_IT_TXE);
+  {
+    huart->Instance->CR1 |= UART_MODE_TX;
+    __HAL_UART_ENABLE_IT(huart, UART_IT_TC);
+
+    // switch the RS485 to TX state.
+    if(rs485DeGpio != NULL)
+        HAL_GPIO_WritePin(rs485DeGpio, rs485DePin, !rs485DeActivateLevel);
+
+  }
   else if (xTxEnable == FALSE)
-    __HAL_UART_DISABLE_IT(&huart1, UART_IT_TXE);
+  {
+    huart->Instance->CR1 &= (~UART_MODE_TX);
+    __HAL_UART_DISABLE_IT(huart, UART_IT_TC);
+  }
+
+
+  // 打开其它中断
+  if(xRxEnable | xTxEnable)
+  {
+    __HAL_UART_ENABLE_IT(huart, UART_IT_PE);
+    __HAL_UART_ENABLE_IT(huart, UART_IT_ERR);
+    __HAL_UART_ENABLE(huart);
+  }
+
 }
 
 BOOL
 xMBPortSerialInit( UCHAR ucPORT, ULONG ulBaudRate, UCHAR ucDataBits, eMBParity eParity )
 {
-	/* 
+  /*
   Do nothing, Initialization is handled by MX_USART3_UART_Init() 
   Fixed port, baudrate, databit and parity  
   */
-	return TRUE;
+
+  if(ucPORT == 1)
+    huart = &huart1;
+
+  assert(huart != NULL);
+
+  HAL_UART_DeInit(huart);
+
+  huart->Init.BaudRate = (uint32_t)ulBaudRate;
+
+
+  if(eParity ==MB_PAR_ODD)
+    huart->Init.Parity = UART_PARITY_ODD;
+  else if(eParity ==MB_PAR_EVEN)
+      huart->Init.Parity = UART_PARITY_EVEN;
+  else
+    huart->Init.Parity = UART_PARITY_NONE;
+
+  if (HAL_UART_Init(huart) != HAL_OK)
+   {
+     Error_Handler();
+   }
+
+  return TRUE;
 }
 
 BOOL
@@ -75,7 +146,7 @@ xMBPortSerialPutByte( CHAR ucByte )
      * by the protocol stack if pxMBFrameCBTransmitterEmpty( ) has been
      * called. */
 
-	return (HAL_OK == HAL_UART_Transmit(&huart1, (uint8_t*)&ucByte, 1, 10));
+  return (HAL_OK == HAL_UART_Transmit(huart, (uint8_t*)&ucByte, 1, 10));
 
 }
 
@@ -86,7 +157,7 @@ xMBPortSerialGetByte( CHAR * pucByte )
      * by the protocol stack after pxMBFrameCBByteReceived( ) has been called.
      */
 
-    *pucByte = (uint8_t)(huart1.Instance->DR & (uint8_t)0x00FF);  
+    *pucByte = (uint8_t)(huart->Instance->DR & (uint8_t)0x00FF);
     return TRUE;
 }
 
@@ -115,21 +186,4 @@ static void prvvUARTRxISR( void )
 }
 */
 
-/*
-void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
-{
-  if(huart->Instance == USART1)
-  {
-    prvvUARTTxReadyISR();
-  }
-}
-
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
-{
-  if(huart->Instance == USART1)
-  {
-    prvvUARTRxISR();
-  }
-}
-*/
 

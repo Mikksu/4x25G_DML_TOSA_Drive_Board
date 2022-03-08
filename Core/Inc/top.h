@@ -8,7 +8,7 @@
 
 #define	VER_MAJOR												(1)
 #define VER_MINOR												(0)
-#define	VER_REV													(1)
+#define	VER_REV													(2)
 
 #define REG_HOLDING_POS_DAC_OUTPUT      (67)
 #define REG_HOLDING_POS_DUT_IIC_OPER    (80)
